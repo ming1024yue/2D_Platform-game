@@ -13,6 +13,7 @@ add_executable(game
     src/Game.cpp
     src/Player.cpp
     src/Enemy.cpp
+    src/LightingSystem.cpp
 )
 
 # Include directories

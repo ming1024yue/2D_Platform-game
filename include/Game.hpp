@@ -4,6 +4,7 @@
 #include <string>
 #include "Player.hpp"
 #include "Enemy.hpp"
+#include "LightingSystem.hpp"
 
 // Game states enum
 enum class GameState {
@@ -23,9 +24,11 @@ private:
     void initializePlatforms();
     void initializeLadders();
     void initializeEnemies();
+    void initializeLights();
     void initializeUI();
     void initializeMiniMap();
     void updateMiniMap();
+    void updateLights();
     void checkPlayerEnemyCollision();
     void updateUI();
     void checkGameOver();
@@ -46,12 +49,17 @@ private:
     bool playerHit;
     float playerHitCooldown;
     
+    // Lighting system
+    LightingSystem lightingSystem;
+    int playerLightIndex; // Index of the player's light
+    
     // Mini-map elements
     sf::RectangleShape miniMapBorder;
     sf::RectangleShape miniMapPlayerIcon;
     std::vector<sf::RectangleShape> miniMapPlatforms;
     std::vector<sf::RectangleShape> miniMapLadders;
     std::vector<sf::RectangleShape> miniMapEnemies;
+    bool showMiniMap; // Flag to toggle minimap visibility
     
     // Game state
     GameState currentState;

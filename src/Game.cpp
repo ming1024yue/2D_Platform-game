@@ -1,4 +1,6 @@
 #include "Game.hpp"
+#include <iostream>
+#include <cstdint> // For uint8_t
 
 // Helper function for rectangle intersection (for SFML 3.x compatibility)
 static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
@@ -16,8 +18,14 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                currentState(GameState::Playing),
                healthText(defaultFont, sf::String("HP: 3"), 24),
                gameOverText(defaultFont, sf::String("GAME OVER"), 48),
-               restartText(defaultFont, sf::String("Press ENTER to restart"), 24) {
+               restartText(defaultFont, sf::String("Press ENTER to restart"), 24),
+               playerLightIndex(0),
+               showMiniMap(true) {
     window.setFramerateLimit(FPS);
+    
+    // Initialize lighting system
+    sf::Color ambientColor(30, 30, 40, 200); // Dark blue-ish ambient light
+    lightingSystem.initialize(WINDOW_WIDTH, WINDOW_HEIGHT, ambientColor);
     
     // Initialize view for scrolling
     gameView.setSize(sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
@@ -49,6 +57,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
+    initializeLights();
 }
 
 sf::RectangleShape Game::createHeartIcon(float x, float y, bool filled) {
@@ -83,9 +92,9 @@ void Game::initializeUI() {
             fontLoaded = true;
         } else if (font.openFromFile("assets/fonts/roboto.ttf")) {
             fontLoaded = true;
-        } else if (font.openFromFile("/Library/Fonts/Arial.ttf")) {
+        } else if (font.openFromFile("/Library/Fonts/arial.ttf")) {
             fontLoaded = true;
-        } else if (font.openFromFile("/System/Library/Fonts/Supplemental/Arial.ttf")) {
+        } else if (font.openFromFile("/System/Library/Fonts/Supplemental/arial.ttf")) {
             fontLoaded = true;
         }
     }
@@ -292,6 +301,11 @@ void Game::handleEvents() {
                 window.close();
             }
             
+            // Toggle minimap with M key
+            if (key->code == sf::Keyboard::Key::M) {
+                showMiniMap = !showMiniMap;
+            }
+            
             // Handle restart when in game over state
             if (currentState == GameState::GameOver && key->code == sf::Keyboard::Key::Enter) {
                 resetGame();
@@ -325,6 +339,7 @@ void Game::resetGame() {
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
+    initializeLights();
 }
 
 void Game::checkPlayerEnemyCollision() {
@@ -389,6 +404,71 @@ void Game::updateMiniMap() {
     }
 }
 
+void Game::initializeLights() {
+    lightingSystem.clearLights();
+    
+    // Add player light (follows the player)
+    sf::Vector2f playerPos = player.getPosition();
+    playerLightIndex = 0; // First light is the player's light
+    lightingSystem.addLight(
+        sf::Vector2f(playerPos.x + player.getSize().x / 2.f, playerPos.y + player.getSize().y / 2.f),
+        150.0f,                    // Radius
+        sf::Color(255, 220, 150),  // Warm light color
+        0.8f                       // Intensity
+    );
+    
+    // Add some static lights around the level
+    
+    // Light near the first ladder
+    lightingSystem.addLight(
+        sf::Vector2f(580.f, WINDOW_HEIGHT - 200.f),
+        180.0f,                    // Radius
+        sf::Color(150, 220, 255),  // Blueish light
+        0.7f                       // Intensity
+    );
+    
+    // Light on platform 3 (highest initial platform)
+    lightingSystem.addLight(
+        sf::Vector2f(600.f, 180.f),
+        160.0f,                    // Radius
+        sf::Color(255, 170, 100),  // Orange-ish light
+        0.75f                      // Intensity
+    );
+    
+    // Light on platform 5 in scrolling area
+    lightingSystem.addLight(
+        sf::Vector2f(1300.f, 230.f),
+        170.0f,                    // Radius
+        sf::Color(150, 255, 150),  // Green-ish light
+        0.7f                       // Intensity
+    );
+    
+    // Light on platform 8 in scrolling area
+    lightingSystem.addLight(
+        sf::Vector2f(2200.f, 180.f),
+        170.0f,                    // Radius
+        sf::Color(255, 150, 220),  // Pink-ish light
+        0.7f                       // Intensity
+    );
+    
+    // Light on final platform
+    lightingSystem.addLight(
+        sf::Vector2f(2850.f, 230.f),
+        190.0f,                    // Radius
+        sf::Color(255, 255, 150),  // Yellow-ish light
+        0.8f                       // Intensity
+    );
+}
+
+void Game::updateLights() {
+    // Update player light position to follow player
+    sf::Vector2f playerCenter(
+        player.getPosition().x + player.getSize().x / 2.f,
+        player.getPosition().y + player.getSize().y / 2.f
+    );
+    lightingSystem.updateLight(playerLightIndex, playerCenter);
+}
+
 void Game::update() {
     if (currentState == GameState::Playing) {
         // Update player
@@ -410,6 +490,9 @@ void Game::update() {
         
         // Update mini-map
         updateMiniMap();
+        
+        // Update lights
+        updateLights();
         
         // Update the view to follow the player horizontally
         float playerX = player.getPosition().x + player.getSize().x / 2.f;
@@ -460,6 +543,9 @@ void Game::draw() {
         player.draw(window);
     }
     
+    // Draw lighting effect directly on top of the scene
+    lightingSystem.draw(window, gameView);
+    
     // Switch to UI view for UI elements
     window.setView(uiView);
     
@@ -478,73 +564,76 @@ void Game::draw() {
         window.draw(restartText);
     }
     
-    // Switch to UI view for mini-map border
-    window.setView(uiView);
-    
-    // Draw mini-map border first
-    window.draw(miniMapBorder);
-    
-    // Create a new view specifically for mini-map content
-    sf::View miniContentView;
-    
-    // Set the viewport to match exactly inside the border with small margin
-    float borderX = WINDOW_WIDTH - MINI_MAP_WIDTH - MINI_MAP_MARGIN;
-    float borderY = WINDOW_HEIGHT - MINI_MAP_HEIGHT - MINI_MAP_MARGIN;
-    float borderWidth = MINI_MAP_WIDTH;
-    float borderHeight = MINI_MAP_HEIGHT;
-    
-    // Add small margin to position inside the border
-    float margin = 4.0f;
-    float viewX = (borderX + margin) / WINDOW_WIDTH;
-    float viewY = (borderY + margin) / WINDOW_HEIGHT;
-    float viewWidth = (borderWidth - 2 * margin) / WINDOW_WIDTH;
-    float viewHeight = (borderHeight - 2 * margin) / WINDOW_HEIGHT;
-    
-    // Set the viewport explicitly so that content appears inside the border
-    miniContentView.setViewport(sf::FloatRect(sf::Vector2f(viewX, viewY), 
-                                            sf::Vector2f(viewWidth, viewHeight)));
-    
-    // Set the view's size to the entire level for consistent scaling
-    miniContentView.setSize(sf::Vector2f(LEVEL_WIDTH, WINDOW_HEIGHT));
-    miniContentView.setCenter(sf::Vector2f(LEVEL_WIDTH / 2.f, WINDOW_HEIGHT / 2.f));
-    
-    // Apply the mini-map view
-    window.setView(miniContentView);
-    
-    // Draw mini-map platforms
-    for (const auto& platform : platforms) {
-        // Draw a scaled-down version directly rather than using precomputed rectangles
-        sf::RectangleShape miniPlatform = platform;
-        float scaleX = viewWidth * WINDOW_WIDTH / LEVEL_WIDTH;
-        float scaleY = viewHeight * WINDOW_HEIGHT / WINDOW_HEIGHT;
-        miniPlatform.setFillColor(sf::Color::Green);
-        window.draw(miniPlatform);
+    // Only draw minimap when showMiniMap is true
+    if (showMiniMap) {
+        // Switch to UI view for mini-map border
+        window.setView(uiView);
+        
+        // Draw mini-map border first
+        window.draw(miniMapBorder);
+        
+        // Create a new view specifically for mini-map content
+        sf::View miniContentView;
+        
+        // Set the viewport to match exactly inside the border with small margin
+        float borderX = WINDOW_WIDTH - MINI_MAP_WIDTH - MINI_MAP_MARGIN;
+        float borderY = WINDOW_HEIGHT - MINI_MAP_HEIGHT - MINI_MAP_MARGIN;
+        float borderWidth = MINI_MAP_WIDTH;
+        float borderHeight = MINI_MAP_HEIGHT;
+        
+        // Add small margin to position inside the border
+        float margin = 4.0f;
+        float viewX = (borderX + margin) / WINDOW_WIDTH;
+        float viewY = (borderY + margin) / WINDOW_HEIGHT;
+        float viewWidth = (borderWidth - 2 * margin) / WINDOW_WIDTH;
+        float viewHeight = (borderHeight - 2 * margin) / WINDOW_HEIGHT;
+        
+        // Set the viewport explicitly so that content appears inside the border
+        miniContentView.setViewport(sf::FloatRect(sf::Vector2f(viewX, viewY), 
+                                                sf::Vector2f(viewWidth, viewHeight)));
+        
+        // Set the view's size to the entire level for consistent scaling
+        miniContentView.setSize(sf::Vector2f(LEVEL_WIDTH, WINDOW_HEIGHT));
+        miniContentView.setCenter(sf::Vector2f(LEVEL_WIDTH / 2.f, WINDOW_HEIGHT / 2.f));
+        
+        // Apply the mini-map view
+        window.setView(miniContentView);
+        
+        // Draw mini-map platforms
+        for (const auto& platform : platforms) {
+            // Draw a scaled-down version directly rather than using precomputed rectangles
+            sf::RectangleShape miniPlatform = platform;
+            float scaleX = viewWidth * WINDOW_WIDTH / LEVEL_WIDTH;
+            float scaleY = viewHeight * WINDOW_HEIGHT / WINDOW_HEIGHT;
+            miniPlatform.setFillColor(sf::Color::Green);
+            window.draw(miniPlatform);
+        }
+        
+        // Draw mini-map ladders
+        for (const auto& ladder : ladders) {
+            // Draw a scaled-down version directly
+            sf::RectangleShape miniLadder = ladder;
+            miniLadder.setFillColor(sf::Color(139, 69, 19)); // Brown
+            window.draw(miniLadder);
+        }
+        
+        // Draw mini-map enemies
+        for (const auto& enemy : enemies) {
+            // Draw scaled enemy positions
+            sf::RectangleShape miniEnemy;
+            miniEnemy.setSize(sf::Vector2f(10.f, 10.f));
+            miniEnemy.setPosition(enemy.getGlobalBounds().position);
+            miniEnemy.setFillColor(sf::Color::Red);
+            window.draw(miniEnemy);
+        }
+        
+        // Draw player icon
+        sf::RectangleShape miniPlayer;
+        miniPlayer.setSize(sf::Vector2f(10.f, 10.f));
+        miniPlayer.setPosition(player.getPosition());
+        miniPlayer.setFillColor(sf::Color::Yellow);
+        window.draw(miniPlayer);
     }
-    
-    // Draw mini-map ladders
-    for (const auto& ladder : ladders) {
-        // Draw a scaled-down version directly
-        sf::RectangleShape miniLadder = ladder;
-        miniLadder.setFillColor(sf::Color(139, 69, 19)); // Brown
-        window.draw(miniLadder);
-    }
-    
-    // Draw mini-map enemies
-    for (const auto& enemy : enemies) {
-        // Draw scaled enemy positions
-        sf::RectangleShape miniEnemy;
-        miniEnemy.setSize(sf::Vector2f(10.f, 10.f));
-        miniEnemy.setPosition(enemy.getGlobalBounds().position);
-        miniEnemy.setFillColor(sf::Color::Red);
-        window.draw(miniEnemy);
-    }
-    
-    // Draw player icon
-    sf::RectangleShape miniPlayer;
-    miniPlayer.setSize(sf::Vector2f(10.f, 10.f));
-    miniPlayer.setPosition(player.getPosition());
-    miniPlayer.setFillColor(sf::Color::Yellow);
-    window.draw(miniPlayer);
     
     // Switch back to UI view for final display
     window.setView(uiView);
