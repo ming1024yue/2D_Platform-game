@@ -9,7 +9,8 @@
 // Game states enum
 enum class GameState {
     Playing,
-    GameOver
+    GameOver,
+    LevelTransition
 };
 
 class Game {
@@ -33,6 +34,8 @@ private:
     void updateUI();
     void checkGameOver();
     void resetGame();
+    void nextLevel();
+    void checkLevelCompletion();
     
     // Helper to create a heart shape
     sf::RectangleShape createHeartIcon(float x, float y, bool filled);
@@ -49,9 +52,15 @@ private:
     bool playerHit;
     float playerHitCooldown;
     
+    // Level system
+    int currentLevel;
+    float transitionTimer;
+    sf::Text levelText;
+    
     // Lighting system
     LightingSystem lightingSystem;
     int playerLightIndex; // Index of the player's light
+    bool showLighting; // Flag to toggle lighting visibility
     
     // Mini-map elements
     sf::RectangleShape miniMapBorder;
@@ -77,6 +86,7 @@ private:
     static constexpr int LEVEL_WIDTH = 3000; // Extended level width for scrolling
     static constexpr int FPS = 60;
     static constexpr float HIT_COOLDOWN = 1.5f; // 1.5 seconds invulnerability
+    static constexpr float LEVEL_TRANSITION_DURATION = 2.0f; // Duration of level transition in seconds
     
     // Mini-map constants
     static constexpr int MINI_MAP_WIDTH = 200;

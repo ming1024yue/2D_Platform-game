@@ -20,7 +20,11 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                gameOverText(defaultFont, sf::String("GAME OVER"), 48),
                restartText(defaultFont, sf::String("Press ENTER to restart"), 24),
                playerLightIndex(0),
-               showMiniMap(true) {
+               showMiniMap(true),
+               showLighting(true),
+               currentLevel(1),
+               transitionTimer(0.f),
+               levelText(defaultFont, sf::String("Level 1"), 36) {
     window.setFramerateLimit(FPS);
     
     // Initialize lighting system
@@ -104,6 +108,7 @@ void Game::initializeUI() {
         healthText.setFont(font);
         gameOverText.setFont(font);
         restartText.setFont(font);
+        levelText.setFont(font);
     }
     
     // Configure health text properties for pixel art style
@@ -116,6 +121,19 @@ void Game::initializeUI() {
     // Just use text for "HP:" label
     healthText.setString(sf::String("HP:"));
     healthText.setPosition(sf::Vector2f(16.f, 16.f));
+    
+    // Configure level text
+    levelText.setString("Level " + std::to_string(currentLevel));
+    levelText.setFillColor(sf::Color::White);
+    levelText.setOutlineColor(sf::Color::Black);
+    levelText.setOutlineThickness(2.0f);
+    
+    // Center level text at the top of the screen
+    sf::FloatRect levelBounds = levelText.getGlobalBounds();
+    levelText.setPosition(sf::Vector2f(
+        WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
+        20.f
+    ));
     
     // Configure game over text
     gameOverText.setFillColor(sf::Color::Red);
@@ -306,6 +324,11 @@ void Game::handleEvents() {
                 showMiniMap = !showMiniMap;
             }
             
+            // Toggle lighting with L key
+            if (key->code == sf::Keyboard::Key::L) {
+                showLighting = !showLighting;
+            }
+            
             // Handle restart when in game over state
             if (currentState == GameState::GameOver && key->code == sf::Keyboard::Key::Enter) {
                 resetGame();
@@ -485,6 +508,9 @@ void Game::update() {
         // Check if game over
         checkGameOver();
         
+        // Check if level is completed
+        checkLevelCompletion();
+        
         // Update UI elements
         updateUI();
         
@@ -506,6 +532,15 @@ void Game::update() {
         }
         
         gameView.setCenter(sf::Vector2f(viewX, WINDOW_HEIGHT / 2.f));
+    }
+    else if (currentState == GameState::LevelTransition) {
+        // Handle level transition
+        transitionTimer -= 1.0f / FPS;
+        
+        if (transitionTimer <= 0) {
+            // Transition to next level
+            nextLevel();
+        }
     }
     
     // Always set the view for drawing
@@ -543,8 +578,10 @@ void Game::draw() {
         player.draw(window);
     }
     
-    // Draw lighting effect directly on top of the scene
-    lightingSystem.draw(window, gameView);
+    // Draw lighting effect only if enabled
+    if (showLighting) {
+        lightingSystem.draw(window, gameView);
+    }
     
     // Switch to UI view for UI elements
     window.setView(uiView);
@@ -558,10 +595,22 @@ void Game::draw() {
         for (const auto& heart : heartIcons) {
             window.draw(heart);
         }
+        
+        // Draw level indicator at the top
+        window.draw(levelText);
     } else if (currentState == GameState::GameOver) {
         // Draw game over text
         window.draw(gameOverText);
         window.draw(restartText);
+    } else if (currentState == GameState::LevelTransition) {
+        // Create semi-transparent dark overlay for level transition
+        sf::RectangleShape overlay;
+        overlay.setSize(sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
+        overlay.setFillColor(sf::Color(0, 0, 0, 180)); // Semi-transparent black
+        window.draw(overlay);
+        
+        // Draw level transition text
+        window.draw(levelText);
     }
     
     // Only draw minimap when showMiniMap is true
@@ -728,5 +777,67 @@ void Game::initializeMiniMap() {
         
         miniEnemy.setFillColor(sf::Color::Red);
         miniMapEnemies.push_back(miniEnemy);
+    }
+}
+
+void Game::checkLevelCompletion() {
+    // Check if player has reached the end of the level (right edge)
+    if (player.getPosition().x >= LEVEL_WIDTH - player.getSize().x - 50.f) {
+        // Player has reached the end of the level
+        currentState = GameState::LevelTransition;
+        transitionTimer = LEVEL_TRANSITION_DURATION;
+        
+        // Set up level transition text
+        levelText.setString("Level " + std::to_string(currentLevel) + " Completed!");
+        
+        // Center the text
+        sf::FloatRect levelBounds = levelText.getGlobalBounds();
+        levelText.setPosition(sf::Vector2f(
+            WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
+            WINDOW_HEIGHT / 2.f - levelBounds.size.y / 2.f
+        ));
+    }
+}
+
+void Game::nextLevel() {
+    // Increment level
+    currentLevel++;
+    
+    // Reset player position to left side of level
+    player.setPosition(sf::Vector2f(50.f, WINDOW_HEIGHT / 2.f));
+    
+    // Reset view
+    gameView.setCenter(sf::Vector2f(WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f));
+    
+    // Reset game state
+    currentState = GameState::Playing;
+    
+    // Update level text
+    levelText.setString("Level " + std::to_string(currentLevel));
+    sf::FloatRect levelBounds = levelText.getGlobalBounds();
+    levelText.setPosition(sf::Vector2f(
+        WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
+        20.f
+    ));
+    
+    // Reinitialize game elements with new variations based on level
+    initializePlatforms();
+    initializeLadders();
+    initializeEnemies();
+    initializeMiniMap();
+    initializeLights();
+    
+    // For higher levels, increase difficulty by adding more enemies or making them faster
+    if (currentLevel > 1) {
+        // Add extra enemies based on level
+        for (int i = 0; i < currentLevel; i++) {
+            float x = 500.f + (i * 400.f);  // Space them out
+            float y = WINDOW_HEIGHT - 70.f; // On the ground
+            float patrolDistance = 160.f + (currentLevel * 20.f); // Longer patrol for higher levels
+            enemies.push_back(Enemy(x, y, patrolDistance));
+        }
+        
+        // Update minimap to include new enemies
+        initializeMiniMap();
     }
 } 
