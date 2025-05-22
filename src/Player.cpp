@@ -24,6 +24,7 @@ Player::Player(float x, float y) {
     isJumping = false;
     onGround = false; // Start in air and let physics place the player
     onLadder = false;
+    facingLeft = false; // Start facing right
     maxHealth = 3; // 3 lives
     health = maxHealth;
     
@@ -52,12 +53,15 @@ void Player::handleInput() {
     // Handle left and right movement
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
         velocity.x = -PLAYER_SPEED;
+        facingLeft = true; // Update facing direction
     }
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
         velocity.x = PLAYER_SPEED;
+        facingLeft = false; // Update facing direction
     }
     else {
         velocity.x = 0;
+        // Keep the previous facing direction when not moving
     }
 
     // Debug space key press

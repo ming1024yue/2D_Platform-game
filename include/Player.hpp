@@ -14,6 +14,9 @@ public:
     sf::Vector2f getSize() const { return collisionBox.getSize(); }
     sf::FloatRect getGlobalBounds() const { return collisionBox.getGlobalBounds(); }
     
+    // Direction facing check
+    bool isFacingLeft() const { return facingLeft; }
+    
     // Setter for player position (used when pushed by enemies)
     void setPosition(const sf::Vector2f& pos);
     
@@ -41,6 +44,7 @@ private:
     bool isJumping;
     bool onGround;
     bool onLadder;
+    bool facingLeft;                 // Track which direction player is facing
     
     // Health properties
     int health;

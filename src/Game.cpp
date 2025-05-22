@@ -226,9 +226,32 @@ void Game::loadAssets() {
         
         // Load character sprites
         try {
-            assets.loadTexture("player", "../assets/images/characters/player.png");
-            playerSprite = std::make_unique<sf::Sprite>(assets.getTexture("player"));
-            usePlayerPlaceholder = false;
+            // Try multiple paths to find the player sprite
+            std::vector<std::string> playerPaths = {
+                "../assets/images/characters/player.png",
+                "assets/images/characters/player.png",
+                "./assets/images/characters/player.png"
+            };
+            
+            bool playerLoaded = false;
+            for (const auto& path : playerPaths) {
+                try {
+                    assets.loadTexture("player", path);
+                    playerLoaded = true;
+                    std::cout << "Successfully loaded player sprite from: " << path << std::endl;
+                    break;
+                } catch (const std::exception& e) {
+                    std::cerr << "Failed to load player sprite from " << path << ": " << e.what() << std::endl;
+                }
+            }
+            
+            if (playerLoaded) {
+                playerSprite = std::make_unique<sf::Sprite>(assets.getTexture("player"));
+                usePlayerPlaceholder = false;
+            } else {
+                std::cerr << "Failed to load player sprite from any path" << std::endl;
+                // We'll use the player placeholder instead
+            }
         } catch (const std::exception& e) {
             std::cerr << "Failed to load player sprite: " << e.what() << std::endl;
             // We'll use the player placeholder instead
@@ -236,9 +259,32 @@ void Game::loadAssets() {
         
         // Load enemy sprites
         try {
-            assets.loadTexture("enemy", "../assets/images/enemies/enemy.png");
-            enemySprite = std::make_unique<sf::Sprite>(assets.getTexture("enemy"));
-            useEnemyPlaceholder = false;
+            // Try multiple paths to find the enemy sprite
+            std::vector<std::string> enemyPaths = {
+                "../assets/images/enemies/enemy.png",
+                "assets/images/enemies/enemy.png",
+                "./assets/images/enemies/enemy.png"
+            };
+            
+            bool enemyLoaded = false;
+            for (const auto& path : enemyPaths) {
+                try {
+                    assets.loadTexture("enemy", path);
+                    enemyLoaded = true;
+                    std::cout << "Successfully loaded enemy sprite from: " << path << std::endl;
+                    break;
+                } catch (const std::exception& e) {
+                    std::cerr << "Failed to load enemy sprite from " << path << ": " << e.what() << std::endl;
+                }
+            }
+            
+            if (enemyLoaded) {
+                enemySprite = std::make_unique<sf::Sprite>(assets.getTexture("enemy"));
+                useEnemyPlaceholder = false;
+            } else {
+                std::cerr << "Failed to load enemy sprite from any path" << std::endl;
+                // We'll use the enemy placeholder instead
+            }
         } catch (const std::exception& e) {
             std::cerr << "Failed to load enemy sprite: " << e.what() << std::endl;
             // We'll use the enemy placeholder instead

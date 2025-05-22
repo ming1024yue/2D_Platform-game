@@ -163,25 +163,42 @@ void Game::draw() {
     }
     
     // Draw enemies
-    for (size_t enemyIdx = 0; enemyIdx < enemies.size(); enemyIdx++) {
-        const auto& enemy = enemies[enemyIdx];
-        // Then draw enemy sprite on top if available
-        if (!useEnemyPlaceholder && enemySprite) {
-            // Position and scale the sprite to match the enemy shape
-            sf::FloatRect bounds = enemy.getGlobalBounds();
-            
-            // Calculate scale to match the shape size and apply enlargement factor
-            sf::Vector2u textureSize = enemySprite->getTexture().getSize();
-            float scaleX = bounds.size.x / textureSize.x * spriteScale;
-            float scaleY = bounds.size.y / textureSize.y * spriteScale;
-            enemySprite->setScale(sf::Vector2f(scaleX, scaleY));
-            
-            // Center the sprite on the shape
-            float offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
-            float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
-            enemySprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
-            
-            window.draw(*enemySprite);
+for (size_t enemyIdx = 0; enemyIdx < enemies.size(); enemyIdx++) {
+    const auto& enemy = enemies[enemyIdx];
+    // Then draw enemy sprite on top if available
+    if (!useEnemyPlaceholder && enemySprite) {
+        // Position and scale the sprite to match the enemy shape
+        sf::FloatRect bounds = enemy.getGlobalBounds();
+        
+        // Get enemy velocity to determine direction
+        sf::Vector2f enemyVelocity = enemy.getVelocity();
+        bool facingLeft = enemyVelocity.x < 0;
+        
+        // Calculate scale to match the shape size and apply enlargement factor
+        sf::Vector2u textureSize = enemySprite->getTexture().getSize();
+        float scaleX = bounds.size.x / textureSize.x * spriteScale;
+        float scaleY = bounds.size.y / textureSize.y * spriteScale;
+        
+        // Flip horizontally if facing left by making scale negative
+        if (facingLeft) {
+            scaleX = -scaleX;
+        }
+        
+        enemySprite->setScale(sf::Vector2f(scaleX, scaleY));
+        
+        // Center the sprite on the shape, adjust for flipping
+        float offsetX;
+        if (facingLeft) {
+                    // When flipped, we need to adjust the X position
+        // The correct adjustment for a flipped sprite
+        offsetX = (bounds.size.x - (textureSize.x * scaleX)) / 2.0f;
+        } else {
+            offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
+        }
+        float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
+        enemySprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
+        
+        window.draw(*enemySprite);
             
             // Draw physics collision box only if enabled
             if (showBoundingBoxes) {
@@ -201,33 +218,76 @@ void Game::draw() {
             // Position the placeholder rectangle to match the enemy
             sf::FloatRect bounds = enemy.getGlobalBounds();
             
+            // Get enemy velocity to determine direction
+            sf::Vector2f enemyVelocity = enemy.getVelocity();
+            bool facingLeft = enemyVelocity.x < 0;
+            
             // Just draw a simple placeholder, no boundary box
             enemyPlaceholder.setSize(sf::Vector2f(bounds.size.x, bounds.size.y));
             enemyPlaceholder.setPosition(sf::Vector2f(bounds.position.x, bounds.position.y));
             enemyPlaceholder.setFillColor(sf::Color::Red);
             enemyPlaceholder.setOutlineColor(sf::Color::Black);
             enemyPlaceholder.setOutlineThickness(1.0f);
+            
+            // Draw a small triangle on the placeholder to indicate direction
+            sf::ConvexShape directionIndicator;
+            directionIndicator.setPointCount(3);
+            
+            if (facingLeft) {
+                // Triangle pointing left
+                directionIndicator.setPoint(0, sf::Vector2f(bounds.position.x + 5, bounds.position.y + bounds.size.y/2));
+                directionIndicator.setPoint(1, sf::Vector2f(bounds.position.x + 15, bounds.position.y + bounds.size.y/2 - 5));
+                directionIndicator.setPoint(2, sf::Vector2f(bounds.position.x + 15, bounds.position.y + bounds.size.y/2 + 5));
+            } else {
+                // Triangle pointing right
+                directionIndicator.setPoint(0, sf::Vector2f(bounds.position.x + bounds.size.x - 5, bounds.position.y + bounds.size.y/2));
+                directionIndicator.setPoint(1, sf::Vector2f(bounds.position.x + bounds.size.x - 15, bounds.position.y + bounds.size.y/2 - 5));
+                directionIndicator.setPoint(2, sf::Vector2f(bounds.position.x + bounds.size.x - 15, bounds.position.y + bounds.size.y/2 + 5));
+            }
+            
+            directionIndicator.setFillColor(sf::Color::Yellow);
+            
             window.draw(enemyPlaceholder);
+            window.draw(directionIndicator);
         }
     }
     
     // Draw player
-    if (!usePlayerPlaceholder && playerSprite) {
-        // Position and scale the sprite to match the player shape
-        sf::FloatRect bounds = player.getGlobalBounds();
-        
-        // Calculate scale to match the shape size and apply enlargement factor
-        sf::Vector2u textureSize = playerSprite->getTexture().getSize();
-        float scaleX = bounds.size.x / textureSize.x * spriteScale;
-        float scaleY = bounds.size.y / textureSize.y * spriteScale;
-        playerSprite->setScale(sf::Vector2f(scaleX, scaleY));
-        
-        // Center the sprite on the shape
-        float offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
-        float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
-        playerSprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
-        
-        window.draw(*playerSprite);
+if (!usePlayerPlaceholder && playerSprite) {
+    // Position and scale the sprite to match the player shape
+    sf::FloatRect bounds = player.getGlobalBounds();
+    
+    // Get player velocity to determine direction
+    sf::Vector2f playerVelocity = player.getVelocity();
+    // For player, we also need to check the last pressed direction key
+    // since the player might be standing still but facing a direction
+    bool facingLeft = playerVelocity.x < 0 || player.isFacingLeft();
+    
+    // Calculate scale to match the shape size and apply enlargement factor
+    sf::Vector2u textureSize = playerSprite->getTexture().getSize();
+    float scaleX = bounds.size.x / textureSize.x * spriteScale;
+    float scaleY = bounds.size.y / textureSize.y * spriteScale;
+    
+    // Flip horizontally if facing left by making scale negative
+    if (facingLeft) {
+        scaleX = -scaleX;
+    }
+    
+    playerSprite->setScale(sf::Vector2f(scaleX, scaleY));
+    
+    // Center the sprite on the shape, adjust for flipping
+    float offsetX;
+    if (facingLeft) {
+        // When flipped, we need to adjust the X position 
+        // The correct adjustment for a flipped sprite
+        offsetX = (bounds.size.x - (textureSize.x * scaleX)) / 2.0f;
+    } else {
+        offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
+    }
+    float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
+    playerSprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
+    
+    window.draw(*playerSprite);
         
         // Draw physics collision box only if enabled
         if (showBoundingBoxes) {
@@ -255,13 +315,36 @@ void Game::draw() {
         // Position the placeholder rectangle to match the player
         sf::FloatRect bounds = player.getGlobalBounds();
         
+        // Get player facing direction
+        bool facingLeft = player.isFacingLeft();
+        
         // Just draw a simple placeholder, no boundary box
         playerPlaceholder.setSize(sf::Vector2f(bounds.size.x, bounds.size.y));
         playerPlaceholder.setPosition(sf::Vector2f(bounds.position.x, bounds.position.y));
         playerPlaceholder.setFillColor(sf::Color::Blue);
         playerPlaceholder.setOutlineColor(sf::Color::Black);
         playerPlaceholder.setOutlineThickness(1.0f);
+        
+        // Draw a small triangle on the placeholder to indicate direction
+        sf::ConvexShape directionIndicator;
+        directionIndicator.setPointCount(3);
+        
+        if (facingLeft) {
+            // Triangle pointing left
+            directionIndicator.setPoint(0, sf::Vector2f(bounds.position.x + 5, bounds.position.y + bounds.size.y/2));
+            directionIndicator.setPoint(1, sf::Vector2f(bounds.position.x + 15, bounds.position.y + bounds.size.y/2 - 5));
+            directionIndicator.setPoint(2, sf::Vector2f(bounds.position.x + 15, bounds.position.y + bounds.size.y/2 + 5));
+        } else {
+            // Triangle pointing right
+            directionIndicator.setPoint(0, sf::Vector2f(bounds.position.x + bounds.size.x - 5, bounds.position.y + bounds.size.y/2));
+            directionIndicator.setPoint(1, sf::Vector2f(bounds.position.x + bounds.size.x - 15, bounds.position.y + bounds.size.y/2 - 5));
+            directionIndicator.setPoint(2, sf::Vector2f(bounds.position.x + bounds.size.x - 15, bounds.position.y + bounds.size.y/2 + 5));
+        }
+        
+        directionIndicator.setFillColor(sf::Color::Yellow);
+        
         window.draw(playerPlaceholder);
+        window.draw(directionIndicator);
     }
     
     // Draw lighting effects on top of everything if enabled
