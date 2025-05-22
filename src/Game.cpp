@@ -3,6 +3,9 @@
 #include <cstdint> // For uint8_t
 #include <sstream>
 #include <iomanip>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 // Helper function for rectangle intersection (for SFML 3.x compatibility)
 static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
@@ -11,7 +14,6 @@ static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
            a.position.y < b.position.y + b.size.y &&
            a.position.y + a.size.y > b.position.y;
 }
-
 
 Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), "2D Platform Puzzle Game"),
                player(50.f, WINDOW_HEIGHT - 100.f), // Increase initial height above ground
@@ -43,7 +45,9 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                frameCount(0),
                currentFPS(0.0f),
                showImGuiDemo(false),
-               useImGuiInterface(true) {
+               useImGuiInterface(true),
+               showAssetManager(false),
+               previewAvailable(false) {
     
     // Initialize sprite pointers with shared empty texture (created in loadAssets)
     // This is required because sf::Sprite has no default constructor in SFML 3.x
@@ -900,15 +904,9 @@ void Game::nextLevel() {
 
 void Game::updateImGui() {
     try {
-        // Update ImGui with elapsed time
-        ImGui::SFML::Update(window, imguiClock.restart());
-        
-        // Only show ImGui interface if enabled
-        if (!useImGuiInterface) {
-            return;
-        }
-        
-        // Create ImGui windows
+        // SFML 3.0 ImGui update
+        sf::Time deltaTime = imguiClock.restart();
+        ImGui::SFML::Update(window, deltaTime);
         
         // 1. Main game settings window
         ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
@@ -1039,9 +1037,24 @@ void Game::updateImGui() {
                 
                 // Assets tab
                 if (ImGui::BeginTabItem("Assets")) {
+                    ImGui::Text("Game Assets");
+                    ImGui::Separator();
+                    
+                    // Asset status
                     ImGui::Text("Background: %s", useBackgroundPlaceholder ? "Using placeholder" : "Loaded");
                     ImGui::Text("Player: %s", usePlayerPlaceholder ? "Using placeholder" : "Loaded");
                     ImGui::Text("Enemy: %s", useEnemyPlaceholder ? "Using placeholder" : "Loaded");
+                    
+                    ImGui::Separator();
+                    
+                    // Asset manager button
+                    if (ImGui::Button("Open Asset Manager")) {
+                        showAssetManager = true;
+                        // Scan assets if we haven't done so yet
+                        if (imageAssets.empty()) {
+                            scanAssetDirectory("assets/images");
+                        }
+                    }
                     
                     if (ImGui::Button("Reload Assets")) {
                         loadAssets();
@@ -1057,6 +1070,11 @@ void Game::updateImGui() {
             ImGui::Text("Press ESC or F1 to toggle interface");
         }
         ImGui::End();
+        
+        // Show asset manager window if enabled
+        if (showAssetManager) {
+            showAssetManagerWindow();
+        }
         
         // Show ImGui demo window if enabled
         if (showImGuiDemo) {
@@ -1108,5 +1126,372 @@ void Game::run() {
         handleEvents();
         update();
         draw();
+    }
+}
+
+// Implementation of the asset manager window
+void Game::showAssetManagerWindow() {
+    // Auto-scan assets directory when window is opened if no assets are loaded
+    static bool firstOpen = true;
+    if (firstOpen) {
+        scanAssetDirectory("assets");
+        firstOpen = false;
+    }
+
+    if (ImGui::Begin("Asset Manager", &showAssetManager)) {
+        // Scan button to refresh the asset list
+        if (ImGui::Button("Scan Assets")) {
+            scanAssetDirectory("assets");
+        }
+        
+        ImGui::SameLine();
+        
+        // Help tooltip
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::BeginTooltip();
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+            ImGui::TextUnformatted("Click to scan the assets directory for all files.\nDirectory contents are shown with [DIR] prefix.\nImage files are shown with [IMG] prefix.");
+            ImGui::PopTextWrapPos();
+            ImGui::EndTooltip();
+        }
+        
+        ImGui::Separator();
+        
+        // Split window into two columns - left for list, right for preview
+        ImGui::Columns(2, "assetColumns");
+        
+        // First column - Asset list
+        ImGui::Text("Assets (%zu found)", imageAssets.size());
+        ImGui::BeginChild("AssetList", ImVec2(0, 0), true);
+        
+        for (auto& asset : imageAssets) {
+            // Display file name and status
+            std::string label = asset.name;
+            bool isImage = asset.name.find("[IMG]") != std::string::npos;
+            bool isDir = asset.name.find("[DIR]") != std::string::npos;
+            
+            if (isImage && asset.isLoaded) {
+                label += " [Loaded]";
+            }
+            
+            // Set colors based on type
+            if (isDir) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.8f, 1.0f, 1.0f)); // Blue for directories
+            } else if (isImage) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 1.0f, 0.5f, 1.0f)); // Green for images
+            } else {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f)); // White for other files
+            }
+            
+            // Selectable item with highlight
+            if (ImGui::Selectable(label.c_str(), selectedAsset == &asset)) {
+                selectedAsset = &asset;
+                
+                // Load texture for preview if available (only for images)
+                previewAvailable = false;
+                if (selectedAsset && isImage && selectedAsset->isLoaded) {
+                    try {
+                        // Try to load the texture for preview
+                        if (previewTexture.loadFromFile(selectedAsset->path)) {
+                            previewAvailable = true;
+                        }
+                    } catch (const std::exception& e) {
+                        std::cerr << "Failed to load preview texture: " << e.what() << std::endl;
+                    }
+                }
+            }
+            
+            ImGui::PopStyleColor();
+        }
+        
+        ImGui::EndChild();
+        
+        // Second column - Asset details and preview
+        ImGui::NextColumn();
+        
+        if (selectedAsset) {
+            // Show asset details
+            ImGui::Text("File: %s", selectedAsset->name.c_str());
+            ImGui::Text("Path: %s", selectedAsset->path.c_str());
+            
+            bool isImage = selectedAsset->name.find("[IMG]") != std::string::npos;
+            bool isDir = selectedAsset->name.find("[DIR]") != std::string::npos;
+            
+            if (isDir) {
+                ImGui::Text("Type: Directory");
+                
+                // Add a button to navigate into this directory
+                if (ImGui::Button("Open Directory")) {
+                    scanAssetDirectory(selectedAsset->path);
+                }
+            } else {
+                ImGui::Text("Type: %s", isImage ? "Image" : "File");
+                
+                if (isImage) {
+                    ImGui::Text("Dimensions: %ux%u", selectedAsset->dimensions.x, selectedAsset->dimensions.y);
+                }
+                
+                // Format file size nicely (KB/MB)
+                float fileSizeKB = static_cast<float>(selectedAsset->fileSize) / 1024.0f;
+                if (fileSizeKB < 1024.0f) {
+                    ImGui::Text("File size: %.2f KB", fileSizeKB);
+                } else {
+                    ImGui::Text("File size: %.2f MB", fileSizeKB / 1024.0f);
+                }
+                
+                if (isImage) {
+                    ImGui::Text("Status: %s", selectedAsset->isLoaded ? "Loaded" : "Not loaded");
+                    
+                    if (selectedAsset->isLoaded) {
+                        ImGui::Text("Load time: %.2f ms", static_cast<float>(selectedAsset->loadTime.asMilliseconds()));
+                    }
+                }
+            }
+            
+            ImGui::Separator();
+            
+            // Show preview if available
+            if (isImage && previewAvailable) {
+                // Calculate preview size maintaining aspect ratio
+                float aspectRatio = static_cast<float>(previewTexture.getSize().x) / 
+                                   static_cast<float>(previewTexture.getSize().y);
+                
+                float maxWidth = ImGui::GetContentRegionAvail().x;
+                float maxHeight = 200.0f; // Maximum preview height
+                
+                float width = maxWidth;
+                float height = width / aspectRatio;
+                
+                if (height > maxHeight) {
+                    height = maxHeight;
+                    width = height * aspectRatio;
+                }
+                
+                // Display the texture
+                ImGui::Text("Preview:");
+                ImGui::Image(previewTexture.getNativeHandle(), ImVec2(width, height));
+                
+                // Add load button for images
+                if (ImGui::Button("Load into Game")) {
+                    try {
+                        // Example of loading into the asset manager
+                        std::string assetName = selectedAsset->name;
+                        // Remove [IMG] prefix and any file extension
+                        assetName = assetName.substr(assetName.find("]") + 2);
+                        assetName = assetName.substr(0, assetName.find_last_of('.'));
+                        assets.loadTexture(assetName, selectedAsset->path);
+                        ImGui::OpenPopup("AssetLoaded");
+                    } catch (const std::exception& e) {
+                        std::cerr << "Failed to load asset: " << e.what() << std::endl;
+                        ImGui::OpenPopup("AssetLoadError");
+                    }
+                }
+                
+                // Asset loaded popup
+                if (ImGui::BeginPopupModal("AssetLoaded", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Asset loaded successfully!");
+                    if (ImGui::Button("OK", ImVec2(120, 0))) {
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
+                }
+                
+                // Asset load error popup
+                if (ImGui::BeginPopupModal("AssetLoadError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Failed to load asset into game!");
+                    if (ImGui::Button("OK", ImVec2(120, 0))) {
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
+                }
+            } else if (isImage) {
+                ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Preview not available");
+            }
+        } else {
+            ImGui::TextDisabled("Select an asset to view details");
+        }
+        
+        ImGui::Columns(1);
+        
+        // Add a back button to navigate up a directory
+        if (ImGui::Button("Back to Parent Directory")) {
+            // Get current directory path
+            std::string currentPath = selectedAsset ? selectedAsset->path : "assets";
+            
+            // Navigate to parent directory
+            fs::path path(currentPath);
+            fs::path parent = path.parent_path();
+            
+            // Don't go above the assets directory
+            if (parent.filename().string() == "assets" || 
+                parent.filename().string() == "images" || 
+                parent.string().find("assets") != std::string::npos) {
+                scanAssetDirectory(parent.string());
+            } else {
+                scanAssetDirectory("assets");
+            }
+        }
+    }
+    ImGui::End();
+    
+    // If window is closed, reset the firstOpen flag for next time
+    if (!showAssetManager) {
+        firstOpen = true;
+    }
+}
+
+// Scan asset directory recursively to find image files
+void Game::scanAssetDirectory(const std::string& directory) {
+    try {
+        std::cout << "Scanning directory: " << directory << std::endl;
+        imageAssets.clear();
+        
+        // Check if the directory exists
+        if (!fs::exists(directory)) {
+            std::cerr << "Directory does not exist: " << directory << std::endl;
+            
+            // Try with different relative paths
+            std::vector<std::string> pathsToTry = {
+                "./assets",
+                "../assets",
+                "assets",
+                "/Users/startup/my-game/assets"
+            };
+            
+            bool foundPath = false;
+            for (const auto& path : pathsToTry) {
+                std::cout << "Trying alternative path: " << path << std::endl;
+                if (fs::exists(path)) {
+                    std::cout << "Found valid path: " << path << std::endl;
+                    scanAssetDirectory(path);
+                    foundPath = true;
+                    break;
+                }
+            }
+            
+            if (!foundPath) {
+                std::cerr << "Could not find assets directory in any of the tried paths" << std::endl;
+            }
+            return;
+        }
+        
+        // List all entries in the directory first (non-recursive)
+        std::cout << "Listing top-level entries in " << directory << ":" << std::endl;
+        
+        // Track directories for subdirectory display
+        std::vector<std::string> subdirectories;
+        
+        // First scan the top directory (non-recursive)
+        for (const auto& entry : fs::directory_iterator(directory)) {
+            std::string path = entry.path().string();
+            std::string name = entry.path().filename().string();
+            
+            std::cout << "Found: " << path << std::endl;
+            
+            if (entry.is_directory()) {
+                // Add to subdirectories list
+                subdirectories.push_back(path);
+                
+                // Create a directory entry in our assets list
+                ImageAssetInfo info;
+                info.path = path;
+                info.name = "[DIR] " + name;
+                info.fileSize = 0;
+                info.isLoaded = false;
+                info.dimensions = sf::Vector2u(0, 0);
+                imageAssets.push_back(info);
+            } else if (entry.is_regular_file()) {
+                std::string extension = entry.path().extension().string();
+                
+                // Convert extension to lowercase
+                std::transform(extension.begin(), extension.end(), extension.begin(), 
+                            [](unsigned char c) { return std::tolower(c); });
+                
+                // Add file to our assets list
+                ImageAssetInfo info;
+                info.path = path;
+                info.name = name;
+                info.fileSize = entry.file_size();
+                info.isLoaded = false;
+                info.dimensions = sf::Vector2u(0, 0);
+                
+                // Try to load the image if it's an image file
+                if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" || 
+                    extension == ".bmp" || extension == ".tga") {
+                    sf::Clock loadTimer;
+                    sf::Texture texture;
+                    if (texture.loadFromFile(info.path)) {
+                        info.dimensions = texture.getSize();
+                        info.isLoaded = true;
+                        info.loadTime = loadTimer.getElapsedTime();
+                        info.name = "[IMG] " + name;
+                    }
+                }
+                
+                imageAssets.push_back(info);
+            }
+        }
+        
+        // Now recursively scan image subdirectories
+        for (const auto& subdir : subdirectories) {
+            if (subdir.find("images") != std::string::npos) {
+                std::cout << "Scanning image subdirectory: " << subdir << std::endl;
+                
+                for (const auto& entry : fs::recursive_directory_iterator(subdir)) {
+                    if (entry.is_regular_file()) {
+                        std::string extension = entry.path().extension().string();
+                        
+                        // Convert extension to lowercase
+                        std::transform(extension.begin(), extension.end(), extension.begin(), 
+                                    [](unsigned char c) { return std::tolower(c); });
+                        
+                        // Check if this is an image file
+                        if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" || 
+                            extension == ".bmp" || extension == ".tga") {
+                            
+                            ImageAssetInfo info;
+                            info.path = entry.path().string();
+                            info.name = "[IMG] " + entry.path().filename().string();
+                            info.fileSize = entry.file_size();
+                            info.isLoaded = false;
+                            info.loadTime = sf::Time::Zero;
+                            
+                            // Try to load the image to get dimensions
+                            sf::Clock loadTimer;
+                            sf::Texture texture;
+                            if (texture.loadFromFile(info.path)) {
+                                info.dimensions = texture.getSize();
+                                info.isLoaded = true;
+                                info.loadTime = loadTimer.getElapsedTime();
+                            } else {
+                                info.dimensions = sf::Vector2u(0, 0);
+                            }
+                            
+                            imageAssets.push_back(info);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Sort assets by name
+        std::sort(imageAssets.begin(), imageAssets.end(), 
+                 [](const ImageAssetInfo& a, const ImageAssetInfo& b) {
+                     // Directories come first, then files
+                     bool aIsDir = a.name.find("[DIR]") != std::string::npos;
+                     bool bIsDir = b.name.find("[DIR]") != std::string::npos;
+                     
+                     if (aIsDir && !bIsDir) return true;
+                     if (!aIsDir && bIsDir) return false;
+                     
+                     // Then sort by name
+                     return a.name < b.name;
+                 });
+        
+        std::cout << "Asset scan complete. Found " << imageAssets.size() << " items." << std::endl;
+                 
+    } catch (const std::exception& e) {
+        std::cerr << "Error scanning assets directory: " << e.what() << std::endl;
     }
 } 

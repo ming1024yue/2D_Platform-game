@@ -2,6 +2,7 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <string>
+#include <filesystem>
 #include "Player.hpp"
 #include "Enemy.hpp"
 #include "LightingSystem.hpp"
@@ -16,6 +17,16 @@ enum class GameState {
     GameOver,
     LevelTransition,
     DebugPanel // New state for showing debug/settings UI
+};
+
+// Image asset info structure
+struct ImageAssetInfo {
+    std::string path;
+    std::string name;
+    sf::Vector2u dimensions;
+    size_t fileSize;
+    bool isLoaded;
+    sf::Time loadTime;
 };
 
 class Game {
@@ -50,6 +61,10 @@ private:
     void updateImGui();
     void renderImGui();
     void shutdownImGui();
+    
+    // Asset manager window
+    void showAssetManagerWindow();
+    void scanAssetDirectory(const std::string& directory);
     
     // FPS counter methods
     void updateFPS();
@@ -116,6 +131,14 @@ private:
     // ImGui UI state variables
     bool showImGuiDemo;
     bool useImGuiInterface;
+    bool showAssetManager; // Flag to show/hide the asset manager window
+    
+    // Asset manager variables
+    std::vector<ImageAssetInfo> imageAssets;
+    std::string assetRootDir = "assets";
+    ImageAssetInfo* selectedAsset = nullptr;
+    sf::Texture previewTexture;
+    bool previewAvailable = false;
     
     // FPS tracking variables
     sf::Clock fpsClock;
