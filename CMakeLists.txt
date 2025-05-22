@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find SFML
-find_package(SFML 3 COMPONENTS Graphics Window System REQUIRED)
+find_package(SFML 3 COMPONENTS Graphics Window System Audio REQUIRED)
 
 # Add executable
 add_executable(game 
@@ -14,10 +14,14 @@ add_executable(game
     src/Player.cpp
     src/Enemy.cpp
     src/LightingSystem.cpp
+    src/AssetManager.cpp
 )
 
 # Include directories
 target_include_directories(game PRIVATE include /opt/homebrew/include)
 
 # Link SFML libraries
-target_link_libraries(game PRIVATE SFML::Graphics SFML::Window SFML::System) 
+target_link_libraries(game PRIVATE SFML::Graphics SFML::Window SFML::System SFML::Audio)
+
+# Add debug subdirectory
+add_subdirectory(src/debug) 

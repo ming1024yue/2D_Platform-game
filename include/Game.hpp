@@ -5,6 +5,7 @@
 #include "Player.hpp"
 #include "Enemy.hpp"
 #include "LightingSystem.hpp"
+#include "AssetManager.hpp"
 
 // Game states enum
 enum class GameState {
@@ -16,6 +17,7 @@ enum class GameState {
 class Game {
 public:
     Game();
+    ~Game() = default;
     void run();
 
 private:
@@ -36,6 +38,7 @@ private:
     void resetGame();
     void nextLevel();
     void checkLevelCompletion();
+    void loadAssets();
     
     // Helper to create a heart shape
     sf::RectangleShape createHeartIcon(float x, float y, bool filled);
@@ -92,4 +95,27 @@ private:
     static constexpr int MINI_MAP_WIDTH = 200;
     static constexpr int MINI_MAP_HEIGHT = 100;
     static constexpr int MINI_MAP_MARGIN = 10;
+
+    AssetManager assets;
+    // Use pointers for sprites to avoid constructor issues
+    std::unique_ptr<sf::Sprite> backgroundSprite;
+    std::unique_ptr<sf::Sprite> playerSprite;
+    std::unique_ptr<sf::Sprite> enemySprite;
+    
+    // Store background texture size for tiling
+    sf::Vector2u backgroundTextureSize;
+    
+    // Placeholder shapes to draw when textures are missing
+    sf::RectangleShape backgroundPlaceholder;
+    sf::RectangleShape playerPlaceholder;
+    sf::RectangleShape enemyPlaceholder;
+    
+    // Flags to indicate when to use placeholders
+    bool useBackgroundPlaceholder = true;
+    bool usePlayerPlaceholder = true;
+    bool useEnemyPlaceholder = true;
+    
+    sf::Vector2f playerPosition;
+    float playerSpeed;
+    bool isRunning;
 }; 

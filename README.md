@@ -45,4 +45,44 @@ A 2D platformer game with puzzle elements, inspired by games like Animal Well an
 - Simple physics-based movement
 - Clean, minimalist visual style 
 
-target_link_libraries(PlatformPuzzleGame PRIVATE sfml-Graphics sfml-Window sfml-System) 
+target_link_libraries(PlatformPuzzleGame PRIVATE sfml-Graphics sfml-Window sfml-System)
+
+## Asset System
+
+This game uses a comprehensive asset management system to handle graphics, sounds, and fonts. 
+
+### Asset Structure
+
+Assets are organized in the following structure:
+
+```
+assets/
+├── images/
+│   ├── backgrounds/   # Background images for game scenes
+│   ├── characters/    # Player and NPC character sprites
+│   └── enemies/       # Enemy sprites
+├── audio/
+│   ├── music/         # Background music tracks
+│   └── sfx/           # Sound effects
+└── fonts/             # Text fonts
+```
+
+### Adding Your Own Assets
+
+See the detailed guide in `README_ASSETS.md` for instructions on adding and using assets in your game.
+
+## Lighting System
+
+The game includes a dynamic lighting system for atmospheric effects. The lighting system is disabled by default but can be toggled with the 'L' key during gameplay.
+
+## Game Controls
+
+- Arrow keys: Move player
+- Space: Jump
+- L: Toggle lighting effects
+- M: Toggle mini-map
+- ESC: Exit game
+
+## License
+
+See LICENSE file for details. 

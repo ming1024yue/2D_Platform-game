@@ -1,7 +1,7 @@
 #include "../include/LightingSystem.hpp"
 
 LightingSystem::LightingSystem() 
-    : windowWidth(800), windowHeight(600), ambientColor(30, 30, 40, 200) {
+    : windowWidth(800), windowHeight(600), ambientColor(30, 30, 40, 200), enabled(false) {
     // Default initialization
     darkOverlay.setFillColor(ambientColor);
 }
@@ -41,7 +41,20 @@ void LightingSystem::setAmbientColor(const sf::Color& color) {
     darkOverlay.setFillColor(ambientColor);
 }
 
+void LightingSystem::setEnabled(bool enabled) {
+    this->enabled = enabled;
+}
+
+bool LightingSystem::isEnabled() const {
+    return enabled;
+}
+
 void LightingSystem::draw(sf::RenderWindow& window, const sf::View& view) {
+    // If lighting system is disabled, don't draw anything
+    if (!enabled) {
+        return;
+    }
+
     // Get view center to position lights relative to the view
     sf::Vector2f viewCenter = view.getCenter();
     sf::Vector2f viewSize = view.getSize();

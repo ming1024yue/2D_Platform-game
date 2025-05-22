@@ -34,10 +34,17 @@ public:
     // Set ambient color (darkness level)
     void setAmbientColor(const sf::Color& color);
     
+    // Enable or disable the lighting system
+    void setEnabled(bool enabled);
+    
+    // Check if the lighting system is enabled
+    bool isEnabled() const;
+    
 private:
     std::vector<PointLight> lights;
     sf::Color ambientColor;
     sf::RectangleShape darkOverlay;
     int windowWidth;
     int windowHeight;
+    bool enabled;
 }; 

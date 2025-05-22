@@ -24,12 +24,20 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                showLighting(true),
                currentLevel(1),
                transitionTimer(0.f),
-               levelText(defaultFont, sf::String("Level 1"), 36) {
+               levelText(defaultFont, sf::String("Level 1"), 36),
+               playerPosition(50.f, WINDOW_HEIGHT / 2.f),
+               playerSpeed(200.f),
+               isRunning(true) {
+    
+    // Initialize sprite pointers with shared empty texture (created in loadAssets)
+    // This is required because sf::Sprite has no default constructor in SFML 3.x
+               
     window.setFramerateLimit(FPS);
     
     // Initialize lighting system
     sf::Color ambientColor(30, 30, 40, 200); // Dark blue-ish ambient light
     lightingSystem.initialize(WINDOW_WIDTH, WINDOW_HEIGHT, ambientColor);
+    lightingSystem.setEnabled(false); // Lighting system off by default
     
     // Initialize view for scrolling
     gameView.setSize(sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
@@ -56,12 +64,101 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
     
     window.setView(gameView);
     
+    // Load game assets
+    loadAssets();
+    
     initializePlatforms();
     initializeLadders();
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
     initializeLights();
+}
+
+// Load all game assets using the AssetManager
+void Game::loadAssets() {
+    try {
+        // Set placeholder flags to true initially
+        useBackgroundPlaceholder = true;
+        usePlayerPlaceholder = true;
+        useEnemyPlaceholder = true;
+        
+        // Initialize placeholder shapes for drawing
+        backgroundPlaceholder.setSize(sf::Vector2f(LEVEL_WIDTH, WINDOW_HEIGHT));
+        backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
+        backgroundPlaceholder.setPosition(sf::Vector2f(0, 0));
+        
+        playerPlaceholder.setSize(sf::Vector2f(32, 32));
+        playerPlaceholder.setFillColor(sf::Color::Blue);
+        
+        enemyPlaceholder.setSize(sf::Vector2f(32, 32));
+        enemyPlaceholder.setFillColor(sf::Color::Red);
+        
+        // Load backgrounds
+        try {
+            // Try to load background_forest.png first (this matches our code)
+            try {
+                assets.loadTexture("background", "../assets/images/backgrounds/background.png");
+            } catch (const std::exception& e) {
+                // If that fails, try loading background.png instead
+                std::cerr << "Trying alternate background file..." << std::endl;
+                assets.loadTexture("background", "assets/images/backgrounds/background.png");
+            }
+            
+            backgroundSprite = std::make_unique<sf::Sprite>(assets.getTexture("background"));
+            
+            // Don't scale the background sprite - we'll use tiling instead
+            // Get the natural texture size to use for tiling calculations
+            backgroundTextureSize = assets.getTexture("background").getSize();
+            
+            useBackgroundPlaceholder = false;
+            std::cout << "Successfully loaded and created background sprite" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load background: " << e.what() << std::endl;
+            // We'll use the background placeholder instead
+        }
+        
+        // Load character sprites
+        try {
+            assets.loadTexture("player", "../assets/images/characters/player.png");
+            playerSprite = std::make_unique<sf::Sprite>(assets.getTexture("player"));
+            usePlayerPlaceholder = false;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load player sprite: " << e.what() << std::endl;
+            // We'll use the player placeholder instead
+        }
+        
+        // Load enemy sprites
+        try {
+            assets.loadTexture("enemy", "../assets/images/enemies/enemy.png");
+            enemySprite = std::make_unique<sf::Sprite>(assets.getTexture("enemy"));
+            useEnemyPlaceholder = false;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load enemy sprite: " << e.what() << std::endl;
+            // We'll use the enemy placeholder instead
+        }
+        
+        // Load fonts
+        try {
+            assets.loadFont("pixel_font", "assets/fonts/pixel.ttf");
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load font: " << e.what() << std::endl;
+            // Font errors are handled in initializeUI with fallbacks
+        }
+        
+        // Load sounds
+        try {
+            assets.loadSoundBuffer("jump", "assets/audio/sfx/jump.wav");
+            assets.loadSoundBuffer("hit", "assets/audio/sfx/hit.wav");
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load sound: " << e.what() << std::endl;
+            // Game can continue without sounds
+        }
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Asset loading error: " << e.what() << std::endl;
+        std::cerr << "Game will continue without some assets." << std::endl;
+    }
 }
 
 sf::RectangleShape Game::createHeartIcon(float x, float y, bool filled) {
@@ -548,10 +645,33 @@ void Game::update() {
 }
 
 void Game::draw() {
-    window.clear(sf::Color::Black); // Black background
+    window.clear(sf::Color(100, 100, 255)); // Sky blue background
     
-    // Use game view for game elements
+    // Set the game view for scrolling game world
     window.setView(gameView);
+    
+    // Draw background 
+    if (useBackgroundPlaceholder) {
+        // Draw the green rectangle placeholder
+        window.draw(backgroundPlaceholder);
+    } else if (backgroundSprite) {
+        // Calculate how many background tiles we need based on view position
+        sf::Vector2f viewCenter = gameView.getCenter();
+        sf::Vector2f viewSize = gameView.getSize();
+        
+        // Calculate the visible area
+        float leftX = viewCenter.x - viewSize.x / 2.0f;
+        float rightX = viewCenter.x + viewSize.x / 2.0f;
+        
+        // Determine the first tile position (round down to nearest tile width)
+        float startX = std::floor(leftX / backgroundTextureSize.x) * backgroundTextureSize.x;
+        
+        // Draw enough tiles to cover the visible area plus a bit extra
+        for (float x = startX; x < rightX + backgroundTextureSize.x; x += backgroundTextureSize.x) {
+            backgroundSprite->setPosition(sf::Vector2f(x, 0));
+            window.draw(*backgroundSprite);
+        }
+    }
     
     // Draw platforms
     for (const auto& platform : platforms) {
@@ -563,23 +683,119 @@ void Game::draw() {
         window.draw(ladder);
     }
     
-    // Draw enemies
+    // Draw enemies - first draw the shapes from Enemy class
     for (const auto& enemy : enemies) {
-        enemy.draw(window);
-    }
-    
-    // Draw player (unless briefly invisible due to hit invulnerability blinking)
-    if (currentState == GameState::Playing) {
-        if (!playerHit || static_cast<int>(playerHitCooldown * 10) % 2 == 0) {
-            player.draw(window);
+        // Skip drawing the solid enemy shape
+        // enemy.draw(window);
+        
+        // Then draw enemy sprite on top if available
+        if (!useEnemyPlaceholder && enemySprite) {
+            // Position and scale the sprite to match the enemy shape
+            sf::FloatRect bounds = enemy.getGlobalBounds();
+            
+            // Make sprite larger than the shape - centered on the shape
+            float scaleFactor = 4.0f; // Make sprite 4x larger than the shape
+            
+            // Calculate scale to match the shape size and apply enlargement factor
+            sf::Vector2u textureSize = enemySprite->getTexture().getSize();
+            float scaleX = bounds.size.x / textureSize.x * scaleFactor;
+            float scaleY = bounds.size.y / textureSize.y * scaleFactor;
+            enemySprite->setScale(sf::Vector2f(scaleX, scaleY));
+            
+            // Center the sprite on the shape
+            float offsetX = (bounds.size.x - (bounds.size.x * scaleFactor)) / 2.0f;
+            float offsetY = (bounds.size.y - (bounds.size.y * scaleFactor)) / 2.0f;
+            enemySprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
+            
+            window.draw(*enemySprite);
+            
+            // Draw red boundary box around the enemy character (not the sprite)
+            // Use the original enemy bounds for the boundary box, but move it downward
+            sf::RectangleShape boundaryBox;
+            
+            // Make boundary box 2/3 the height and position it at the bottom
+            float boxHeight = bounds.size.y * 0.67f;
+            float boxY = bounds.position.y + bounds.size.y - boxHeight;
+            
+            boundaryBox.setSize(sf::Vector2f(bounds.size.x, boxHeight));
+            boundaryBox.setPosition(sf::Vector2f(bounds.position.x, boxY));
+            boundaryBox.setFillColor(sf::Color::Transparent);
+            boundaryBox.setOutlineColor(sf::Color::Red);
+            boundaryBox.setOutlineThickness(2.0f);
+            window.draw(boundaryBox);
+        } else if (useEnemyPlaceholder) {
+            // Position the placeholder rectangle to match the enemy
+            sf::FloatRect bounds = enemy.getGlobalBounds();
+            
+            // Make boundary box 2/3 the height and position it at the bottom
+            float boxHeight = bounds.size.y * 0.67f;
+            float boxY = bounds.position.y + bounds.size.y - boxHeight;
+            
+            enemyPlaceholder.setSize(sf::Vector2f(bounds.size.x, boxHeight));
+            enemyPlaceholder.setPosition(sf::Vector2f(bounds.position.x, boxY));
+            enemyPlaceholder.setFillColor(sf::Color::Transparent);
+            enemyPlaceholder.setOutlineColor(sf::Color::Red);
+            enemyPlaceholder.setOutlineThickness(2.0f);
+            window.draw(enemyPlaceholder);
         }
-    } else {
-        // Still draw player when game over, but don't blink
-        player.draw(window);
     }
     
-    // Draw lighting effect only if enabled
-    if (showLighting) {
+    // Draw player - skip drawing the solid player shape
+    // player.draw(window);
+    
+    // Then draw player sprite on top if available
+    if (!usePlayerPlaceholder && playerSprite) {
+        // Position and scale the sprite to match the player shape
+        sf::FloatRect bounds = player.getGlobalBounds();
+        
+        // Make sprite larger than the shape - centered on the shape
+        float scaleFactor = 4.0f; // Make sprite 4x larger than the shape
+        
+        // Calculate scale to match the shape size and apply enlargement factor
+        sf::Vector2u textureSize = playerSprite->getTexture().getSize();
+        float scaleX = bounds.size.x / textureSize.x * scaleFactor;
+        float scaleY = bounds.size.y / textureSize.y * scaleFactor;
+        playerSprite->setScale(sf::Vector2f(scaleX, scaleY));
+        
+        // Center the sprite on the shape
+        float offsetX = (bounds.size.x - (bounds.size.x * scaleFactor)) / 2.0f;
+        float offsetY = (bounds.size.y - (bounds.size.y * scaleFactor)) / 2.0f;
+        playerSprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
+        
+        window.draw(*playerSprite);
+        
+        // Draw green boundary box around the player character (not the sprite)
+        // Use the original player bounds for the boundary box, but move it downward
+        sf::RectangleShape boundaryBox;
+        
+        // Make boundary box 2/3 the height and position it at the bottom
+        float boxHeight = bounds.size.y * 0.67f;
+        float boxY = bounds.position.y + bounds.size.y - boxHeight;
+        
+        boundaryBox.setSize(sf::Vector2f(bounds.size.x, boxHeight));
+        boundaryBox.setPosition(sf::Vector2f(bounds.position.x, boxY));
+        boundaryBox.setFillColor(sf::Color::Transparent);
+        boundaryBox.setOutlineColor(sf::Color::Green);
+        boundaryBox.setOutlineThickness(2.0f);
+        window.draw(boundaryBox);
+    } else if (usePlayerPlaceholder) {
+        // Position the placeholder rectangle to match the player
+        sf::FloatRect bounds = player.getGlobalBounds();
+        
+        // Make boundary box 2/3 the height and position it at the bottom
+        float boxHeight = bounds.size.y * 0.67f;
+        float boxY = bounds.position.y + bounds.size.y - boxHeight;
+        
+        playerPlaceholder.setSize(sf::Vector2f(bounds.size.x, boxHeight));
+        playerPlaceholder.setPosition(sf::Vector2f(bounds.position.x, boxY));
+        playerPlaceholder.setFillColor(sf::Color::Transparent);
+        playerPlaceholder.setOutlineColor(sf::Color::Green);
+        playerPlaceholder.setOutlineThickness(2.0f);
+        window.draw(playerPlaceholder);
+    }
+    
+    // Draw lighting effects on top of everything if enabled
+    if (showLighting && lightingSystem.isEnabled()) {
         lightingSystem.draw(window, gameView);
     }
     
