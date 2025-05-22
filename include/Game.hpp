@@ -11,7 +11,8 @@
 enum class GameState {
     Playing,
     GameOver,
-    LevelTransition
+    LevelTransition,
+    DebugPanel // New state for showing debug/settings UI
 };
 
 class Game {
@@ -40,8 +41,20 @@ private:
     void checkLevelCompletion();
     void loadAssets();
     
+    // Debug panel methods
+    void drawDebugPanel();
+    void initializeDebugPanel();
+    bool drawSettingsButton(const std::string& label, bool* value, float x, float y, float width = 150.0f);
+    bool drawSlider(const std::string& label, float* value, float min, float max, float x, float y, float width = 150.0f);
+    void drawColorPicker(const std::string& label, sf::Color* color, float x, float y);
+    void drawTabButton(const std::string& label, int tabId, int* currentTabId, float x, float y, float width = 120.0f);
+    
     // Helper to create a heart shape
     sf::RectangleShape createHeartIcon(float x, float y, bool filled);
+
+    // FPS counter methods
+    void updateFPS();
+    void drawFPS();
 
     sf::RenderWindow window;
     sf::View gameView;
@@ -75,6 +88,7 @@ private:
     
     // Game state
     GameState currentState;
+    GameState previousState; // For returning from debug panel
     
     // UI elements
     sf::Font defaultFont; // Default font for initialization
@@ -83,6 +97,26 @@ private:
     sf::Text gameOverText;
     sf::Text restartText;
     std::vector<sf::RectangleShape> heartIcons; // Heart icons for health display
+    
+    // Debug panel elements
+    sf::RectangleShape debugPanelBackground;
+    sf::Text debugPanelTitle;
+    int currentDebugTab;
+    bool showBoundingBoxes;
+    float gameSpeed;
+    sf::Color platformColor;
+    sf::Color playerBorderColor;
+    sf::Color enemyBorderColor;
+    float spriteScale;
+    float boundaryBoxHeight;
+    
+    // FPS tracking variables
+    sf::Clock fpsClock;
+    sf::Text fpsText;
+    sf::RectangleShape fpsBackground;
+    float fpsUpdateTime;
+    int frameCount;
+    float currentFPS;
     
     static constexpr int WINDOW_WIDTH = 800;
     static constexpr int WINDOW_HEIGHT = 600;

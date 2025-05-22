@@ -1,6 +1,8 @@
 #include "Game.hpp"
 #include <iostream>
 #include <cstdint> // For uint8_t
+#include <sstream>
+#include <iomanip>
 
 // Helper function for rectangle intersection (for SFML 3.x compatibility)
 static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
@@ -19,6 +21,8 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                healthText(defaultFont, sf::String("HP: 3"), 24),
                gameOverText(defaultFont, sf::String("GAME OVER"), 48),
                restartText(defaultFont, sf::String("Press ENTER to restart"), 24),
+               debugPanelTitle(defaultFont, sf::String("Game Settings Panel"), 24),
+               fpsText(defaultFont, sf::String("FPS: 0"), 16),
                playerLightIndex(0),
                showMiniMap(true),
                showLighting(true),
@@ -27,7 +31,19 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                levelText(defaultFont, sf::String("Level 1"), 36),
                playerPosition(50.f, WINDOW_HEIGHT / 2.f),
                playerSpeed(200.f),
-               isRunning(true) {
+               isRunning(true),
+               previousState(GameState::Playing),
+               currentDebugTab(0),
+               showBoundingBoxes(true),
+               gameSpeed(1.0f),
+               platformColor(34, 139, 34),
+               playerBorderColor(0, 255, 0),
+               enemyBorderColor(255, 0, 0),
+               spriteScale(4.0f),
+               boundaryBoxHeight(0.67f),
+               fpsUpdateTime(0.0f),
+               frameCount(0),
+               currentFPS(0.0f) {
     
     // Initialize sprite pointers with shared empty texture (created in loadAssets)
     // This is required because sf::Sprite has no default constructor in SFML 3.x
@@ -73,6 +89,21 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
     initializeUI();
     initializeMiniMap();
     initializeLights();
+    initializeDebugPanel();
+    
+    // Initialize FPS text
+    fpsText.setFillColor(sf::Color::White);
+    fpsText.setOutlineColor(sf::Color::Black);
+    fpsText.setOutlineThickness(2.0f);
+    fpsText.setCharacterSize(24); // Larger text
+    fpsText.setPosition(sf::Vector2f(WINDOW_WIDTH - 115, 8)); // Better centered within the background
+
+    // Initialize FPS background
+    fpsBackground.setSize(sf::Vector2f(120, 35)); // Larger background
+    fpsBackground.setPosition(sf::Vector2f(WINDOW_WIDTH - 125, 5));
+    fpsBackground.setFillColor(sf::Color(0, 0, 0, 200)); // More opaque background
+    fpsBackground.setOutlineColor(sf::Color(200, 200, 200)); // Lighter outline
+    fpsBackground.setOutlineThickness(2.0f); // Thicker outline
 }
 
 // Load all game assets using the AssetManager
@@ -205,8 +236,15 @@ void Game::initializeUI() {
         healthText.setFont(font);
         gameOverText.setFont(font);
         restartText.setFont(font);
-        levelText.setFont(font);
+        levelText.setFont(font); 
+        fpsText.setFont(font); // Also update the FPS text font
     }
+    
+    // Make FPS text more visible - use larger size and bright color
+    fpsText.setFillColor(sf::Color::White);  // White is more visible
+    fpsText.setOutlineColor(sf::Color::Black);
+    fpsText.setOutlineThickness(2.0f);
+    fpsText.setCharacterSize(24); // Larger text
     
     // Configure health text properties for pixel art style
     healthText.setFillColor(sf::Color::White);
@@ -413,7 +451,12 @@ void Game::handleEvents() {
         }
         if (auto key = event->getIf<sf::Event::KeyPressed>()) {
             if (key->code == sf::Keyboard::Key::Escape) {
-                window.close();
+                // If in debug panel, return to previous state
+                if (currentState == GameState::DebugPanel) {
+                    currentState = previousState;
+                } else {
+                    window.close();
+                }
             }
             
             // Toggle minimap with M key
@@ -424,6 +467,16 @@ void Game::handleEvents() {
             // Toggle lighting with L key
             if (key->code == sf::Keyboard::Key::L) {
                 showLighting = !showLighting;
+            }
+            
+            // Toggle debug panel with F1 key
+            if (key->code == sf::Keyboard::Key::F1) {
+                if (currentState == GameState::DebugPanel) {
+                    currentState = previousState;
+                } else {
+                    previousState = currentState;
+                    currentState = GameState::DebugPanel;
+                }
             }
             
             // Handle restart when in game over state
@@ -590,6 +643,9 @@ void Game::updateLights() {
 }
 
 void Game::update() {
+    // Update FPS counter
+    updateFPS();
+    
     if (currentState == GameState::Playing) {
         // Update player
         player.update(platforms, ladders);
@@ -644,6 +700,40 @@ void Game::update() {
     window.setView(gameView);
 }
 
+void Game::updateFPS() {
+    // Increment frame counter
+    frameCount++;
+    
+    // Accumulate time
+    fpsUpdateTime += fpsClock.restart().asSeconds();
+    
+    // Update FPS counter approximately once per quarter second for more frequent updates
+    if (fpsUpdateTime >= 0.25f) {
+        // Calculate FPS
+        currentFPS = static_cast<float>(frameCount) / fpsUpdateTime;
+        
+        // Update FPS text with one decimal place precision
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(1) << "FPS: " << currentFPS;
+        fpsText.setString(ss.str());
+        
+        // Reset counters
+        frameCount = 0;
+        fpsUpdateTime = 0.0f;
+    }
+}
+
+void Game::drawFPS() {
+    // Make sure we're in UI view
+    window.setView(uiView);
+    
+    // Draw the background first
+    window.draw(fpsBackground);
+    
+    // Draw FPS text in the top-right corner
+    window.draw(fpsText);
+}
+
 void Game::draw() {
     window.clear(sf::Color(100, 100, 255)); // Sky blue background
     
@@ -675,7 +765,10 @@ void Game::draw() {
     
     // Draw platforms
     for (const auto& platform : platforms) {
-        window.draw(platform);
+        // Apply platform color from settings
+        sf::RectangleShape coloredPlatform = platform;
+        coloredPlatform.setFillColor(platformColor);
+        window.draw(coloredPlatform);
     }
     
     // Draw ladders
@@ -694,47 +787,49 @@ void Game::draw() {
             sf::FloatRect bounds = enemy.getGlobalBounds();
             
             // Make sprite larger than the shape - centered on the shape
-            float scaleFactor = 4.0f; // Make sprite 4x larger than the shape
+            // Use the configurable sprite scale factor
             
             // Calculate scale to match the shape size and apply enlargement factor
             sf::Vector2u textureSize = enemySprite->getTexture().getSize();
-            float scaleX = bounds.size.x / textureSize.x * scaleFactor;
-            float scaleY = bounds.size.y / textureSize.y * scaleFactor;
+            float scaleX = bounds.size.x / textureSize.x * spriteScale;
+            float scaleY = bounds.size.y / textureSize.y * spriteScale;
             enemySprite->setScale(sf::Vector2f(scaleX, scaleY));
             
             // Center the sprite on the shape
-            float offsetX = (bounds.size.x - (bounds.size.x * scaleFactor)) / 2.0f;
-            float offsetY = (bounds.size.y - (bounds.size.y * scaleFactor)) / 2.0f;
+            float offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
+            float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
             enemySprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
             
             window.draw(*enemySprite);
             
-            // Draw red boundary box around the enemy character (not the sprite)
-            // Use the original enemy bounds for the boundary box, but move it downward
-            sf::RectangleShape boundaryBox;
-            
-            // Make boundary box 2/3 the height and position it at the bottom
-            float boxHeight = bounds.size.y * 0.67f;
-            float boxY = bounds.position.y + bounds.size.y - boxHeight;
-            
-            boundaryBox.setSize(sf::Vector2f(bounds.size.x, boxHeight));
-            boundaryBox.setPosition(sf::Vector2f(bounds.position.x, boxY));
-            boundaryBox.setFillColor(sf::Color::Transparent);
-            boundaryBox.setOutlineColor(sf::Color::Red);
-            boundaryBox.setOutlineThickness(2.0f);
-            window.draw(boundaryBox);
+            // Draw red boundary box around the enemy character if enabled
+            if (showBoundingBoxes) {
+                // Use the original enemy bounds for the boundary box, but move it downward
+                sf::RectangleShape boundaryBox;
+                
+                // Make boundary box configurable height and position it at the bottom
+                float boxHeight = bounds.size.y * boundaryBoxHeight;
+                float boxY = bounds.position.y + bounds.size.y - boxHeight;
+                
+                boundaryBox.setSize(sf::Vector2f(bounds.size.x, boxHeight));
+                boundaryBox.setPosition(sf::Vector2f(bounds.position.x, boxY));
+                boundaryBox.setFillColor(sf::Color::Transparent);
+                boundaryBox.setOutlineColor(enemyBorderColor);
+                boundaryBox.setOutlineThickness(2.0f);
+                window.draw(boundaryBox);
+            }
         } else if (useEnemyPlaceholder) {
             // Position the placeholder rectangle to match the enemy
             sf::FloatRect bounds = enemy.getGlobalBounds();
             
-            // Make boundary box 2/3 the height and position it at the bottom
-            float boxHeight = bounds.size.y * 0.67f;
+            // Make boundary box configurable height and position it at the bottom
+            float boxHeight = bounds.size.y * boundaryBoxHeight;
             float boxY = bounds.position.y + bounds.size.y - boxHeight;
             
             enemyPlaceholder.setSize(sf::Vector2f(bounds.size.x, boxHeight));
             enemyPlaceholder.setPosition(sf::Vector2f(bounds.position.x, boxY));
             enemyPlaceholder.setFillColor(sf::Color::Transparent);
-            enemyPlaceholder.setOutlineColor(sf::Color::Red);
+            enemyPlaceholder.setOutlineColor(enemyBorderColor);
             enemyPlaceholder.setOutlineThickness(2.0f);
             window.draw(enemyPlaceholder);
         }
@@ -749,47 +844,49 @@ void Game::draw() {
         sf::FloatRect bounds = player.getGlobalBounds();
         
         // Make sprite larger than the shape - centered on the shape
-        float scaleFactor = 4.0f; // Make sprite 4x larger than the shape
+        // Use the configurable sprite scale factor
         
         // Calculate scale to match the shape size and apply enlargement factor
         sf::Vector2u textureSize = playerSprite->getTexture().getSize();
-        float scaleX = bounds.size.x / textureSize.x * scaleFactor;
-        float scaleY = bounds.size.y / textureSize.y * scaleFactor;
+        float scaleX = bounds.size.x / textureSize.x * spriteScale;
+        float scaleY = bounds.size.y / textureSize.y * spriteScale;
         playerSprite->setScale(sf::Vector2f(scaleX, scaleY));
         
         // Center the sprite on the shape
-        float offsetX = (bounds.size.x - (bounds.size.x * scaleFactor)) / 2.0f;
-        float offsetY = (bounds.size.y - (bounds.size.y * scaleFactor)) / 2.0f;
+        float offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
+        float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
         playerSprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
         
         window.draw(*playerSprite);
         
-        // Draw green boundary box around the player character (not the sprite)
-        // Use the original player bounds for the boundary box, but move it downward
-        sf::RectangleShape boundaryBox;
-        
-        // Make boundary box 2/3 the height and position it at the bottom
-        float boxHeight = bounds.size.y * 0.67f;
-        float boxY = bounds.position.y + bounds.size.y - boxHeight;
-        
-        boundaryBox.setSize(sf::Vector2f(bounds.size.x, boxHeight));
-        boundaryBox.setPosition(sf::Vector2f(bounds.position.x, boxY));
-        boundaryBox.setFillColor(sf::Color::Transparent);
-        boundaryBox.setOutlineColor(sf::Color::Green);
-        boundaryBox.setOutlineThickness(2.0f);
-        window.draw(boundaryBox);
+        // Draw green boundary box around the player character if enabled
+        if (showBoundingBoxes) {
+            // Use the original player bounds for the boundary box, but move it downward
+            sf::RectangleShape boundaryBox;
+            
+            // Make boundary box configurable height and position it at the bottom
+            float boxHeight = bounds.size.y * boundaryBoxHeight;
+            float boxY = bounds.position.y + bounds.size.y - boxHeight;
+            
+            boundaryBox.setSize(sf::Vector2f(bounds.size.x, boxHeight));
+            boundaryBox.setPosition(sf::Vector2f(bounds.position.x, boxY));
+            boundaryBox.setFillColor(sf::Color::Transparent);
+            boundaryBox.setOutlineColor(playerBorderColor);
+            boundaryBox.setOutlineThickness(2.0f);
+            window.draw(boundaryBox);
+        }
     } else if (usePlayerPlaceholder) {
         // Position the placeholder rectangle to match the player
         sf::FloatRect bounds = player.getGlobalBounds();
         
-        // Make boundary box 2/3 the height and position it at the bottom
-        float boxHeight = bounds.size.y * 0.67f;
+        // Make boundary box configurable height and position it at the bottom
+        float boxHeight = bounds.size.y * boundaryBoxHeight;
         float boxY = bounds.position.y + bounds.size.y - boxHeight;
         
         playerPlaceholder.setSize(sf::Vector2f(bounds.size.x, boxHeight));
         playerPlaceholder.setPosition(sf::Vector2f(bounds.position.x, boxY));
         playerPlaceholder.setFillColor(sf::Color::Transparent);
-        playerPlaceholder.setOutlineColor(sf::Color::Green);
+        playerPlaceholder.setOutlineColor(playerBorderColor);
         playerPlaceholder.setOutlineThickness(2.0f);
         window.draw(playerPlaceholder);
     }
@@ -827,6 +924,9 @@ void Game::draw() {
         
         // Draw level transition text
         window.draw(levelText);
+    } else if (currentState == GameState::DebugPanel) {
+        // Draw the debug panel
+        drawDebugPanel();
     }
     
     // Only draw minimap when showMiniMap is true
@@ -902,6 +1002,9 @@ void Game::draw() {
     
     // Switch back to UI view for final display
     window.setView(uiView);
+    
+    // Draw FPS counter - ensure it's drawn last so it's on top of everything
+    drawFPS();
     
     window.display();
 }
@@ -1055,5 +1158,318 @@ void Game::nextLevel() {
         
         // Update minimap to include new enemies
         initializeMiniMap();
+    }
+}
+
+void Game::initializeDebugPanel() {
+    // Set up the debug panel background
+    debugPanelBackground.setSize(sf::Vector2f(WINDOW_WIDTH - 100, WINDOW_HEIGHT - 100));
+    debugPanelBackground.setPosition(sf::Vector2f(50, 50));
+    debugPanelBackground.setFillColor(sf::Color(30, 30, 30, 230)); // Semi-transparent dark background
+    debugPanelBackground.setOutlineColor(sf::Color(100, 100, 100));
+    debugPanelBackground.setOutlineThickness(2.0f);
+    
+    // Set up title text
+    debugPanelTitle.setFont(font);
+    debugPanelTitle.setString("Game Settings Panel");
+    debugPanelTitle.setCharacterSize(24);
+    debugPanelTitle.setFillColor(sf::Color::White);
+    
+    // Center the title at the top of the panel
+    sf::FloatRect titleBounds = debugPanelTitle.getGlobalBounds();
+    debugPanelTitle.setPosition(sf::Vector2f(
+        WINDOW_WIDTH / 2 - titleBounds.size.x / 2,
+        60
+    ));
+}
+
+void Game::drawDebugPanel() {
+    // Draw the panel background
+    window.draw(debugPanelBackground);
+    
+    // Draw panel title
+    window.draw(debugPanelTitle);
+    
+    // Draw tabs
+    drawTabButton("Graphics", 0, &currentDebugTab, 100, 100);
+    drawTabButton("Gameplay", 1, &currentDebugTab, 230, 100);
+    drawTabButton("Physics", 2, &currentDebugTab, 360, 100);
+    drawTabButton("Debug", 3, &currentDebugTab, 490, 100);
+    drawTabButton("Assets", 4, &currentDebugTab, 620, 100);
+    
+    // Draw a separator line
+    sf::RectangleShape separator;
+    separator.setSize(sf::Vector2f(WINDOW_WIDTH - 150, 2));
+    separator.setPosition(sf::Vector2f(75, 130));
+    separator.setFillColor(sf::Color(100, 100, 100));
+    window.draw(separator);
+    
+    // Content area starts at y=150
+    if (currentDebugTab == 0) { // Graphics settings
+        drawSettingsButton("Show Lighting", &showLighting, 100, 150);
+        drawSettingsButton("Show Bounding Boxes", &showBoundingBoxes, 100, 190);
+        drawSettingsButton("Show Mini-map", &showMiniMap, 100, 230);
+        
+        drawSlider("Sprite Scale", &spriteScale, 1.0f, 8.0f, 400, 150);
+        drawSlider("Box Height", &boundaryBoxHeight, 0.1f, 1.0f, 400, 190);
+        
+        drawColorPicker("Platform Color", &platformColor, 100, 300);
+        drawColorPicker("Player Border", &playerBorderColor, 100, 350);
+        drawColorPicker("Enemy Border", &enemyBorderColor, 100, 400);
+    }
+    else if (currentDebugTab == 1) { // Gameplay settings
+        drawSlider("Game Speed", &gameSpeed, 0.1f, 2.0f, 100, 150);
+        drawSlider("Player Speed", &playerSpeed, 50.0f, 400.0f, 100, 190);
+        
+        // Level reset button
+        sf::RectangleShape resetButton;
+        resetButton.setSize(sf::Vector2f(150, 30));
+        resetButton.setPosition(sf::Vector2f(100, 250));
+        resetButton.setFillColor(sf::Color(200, 50, 50));
+        resetButton.setOutlineColor(sf::Color::White);
+        resetButton.setOutlineThickness(1);
+        window.draw(resetButton);
+        
+        sf::Text resetText(font, sf::String("Reset Level"), 16);
+        resetText.setFillColor(sf::Color::White);
+        
+        sf::FloatRect resetBounds = resetText.getGlobalBounds();
+        resetText.setPosition(sf::Vector2f(
+            100 + 75 - resetBounds.size.x / 2,
+            250 + 15 - resetBounds.size.y / 2
+        ));
+        window.draw(resetText);
+        
+        // Check if reset button was clicked
+        if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
+            sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+            if (mousePos.x >= 100 && mousePos.x <= 250 &&
+                mousePos.y >= 250 && mousePos.y <= 280) {
+                resetGame();
+                currentState = GameState::Playing;
+            }
+        }
+    }
+    else if (currentDebugTab == 2) { // Physics settings
+        // Add physics settings controls here
+    }
+    else if (currentDebugTab == 3) { // Debug settings
+        // Add debug settings controls here
+    }
+    else if (currentDebugTab == 4) { // Asset settings
+        // List assets and allow reloading
+        sf::Text assetTitle(font, sf::String("Game Assets"), 18);
+        assetTitle.setFillColor(sf::Color::White);
+        assetTitle.setPosition(sf::Vector2f(100, 150));
+        window.draw(assetTitle);
+        
+        // Background asset info
+        sf::Text bgText(font, sf::String(std::string("Background: ") + 
+            (useBackgroundPlaceholder ? "Using placeholder" : "Loaded")), 14);
+        bgText.setFillColor(useBackgroundPlaceholder ? sf::Color::Red : sf::Color::Green);
+        bgText.setPosition(sf::Vector2f(100, 180));
+        window.draw(bgText);
+        
+        // Player asset info
+        sf::Text playerText(font, sf::String(std::string("Player: ") + 
+            (usePlayerPlaceholder ? "Using placeholder" : "Loaded")), 14);
+        playerText.setFillColor(usePlayerPlaceholder ? sf::Color::Red : sf::Color::Green);
+        playerText.setPosition(sf::Vector2f(100, 200));
+        window.draw(playerText);
+        
+        // Enemy asset info
+        sf::Text enemyText(font, sf::String(std::string("Enemy: ") + 
+            (useEnemyPlaceholder ? "Using placeholder" : "Loaded")), 14);
+        enemyText.setFillColor(useEnemyPlaceholder ? sf::Color::Red : sf::Color::Green);
+        enemyText.setPosition(sf::Vector2f(100, 220));
+        window.draw(enemyText);
+        
+        // Reload assets button
+        sf::RectangleShape reloadButton;
+        reloadButton.setSize(sf::Vector2f(150, 30));
+        reloadButton.setPosition(sf::Vector2f(100, 260));
+        reloadButton.setFillColor(sf::Color(50, 100, 200));
+        reloadButton.setOutlineColor(sf::Color::White);
+        reloadButton.setOutlineThickness(1);
+        window.draw(reloadButton);
+        
+        sf::Text reloadText(font, sf::String("Reload Assets"), 16);
+        reloadText.setFillColor(sf::Color::White);
+        
+        sf::FloatRect reloadBounds = reloadText.getGlobalBounds();
+        reloadText.setPosition(sf::Vector2f(
+            100 + 75 - reloadBounds.size.x / 2,
+            260 + 15 - reloadBounds.size.y / 2
+        ));
+        window.draw(reloadText);
+        
+        // Check if reload button was clicked
+        if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
+            sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+            if (mousePos.x >= 100 && mousePos.x <= 250 &&
+                mousePos.y >= 260 && mousePos.y <= 290) {
+                loadAssets();
+            }
+        }
+    }
+    
+    // Instructions at the bottom
+    sf::Text instructionsText(font, sf::String("Press ESC or F1 to return to game"), 14);
+    instructionsText.setFillColor(sf::Color(200, 200, 200));
+    
+    sf::FloatRect instructBounds = instructionsText.getGlobalBounds();
+    instructionsText.setPosition(sf::Vector2f(
+        WINDOW_WIDTH / 2 - instructBounds.size.x / 2,
+        WINDOW_HEIGHT - 80
+    ));
+    window.draw(instructionsText);
+}
+
+bool Game::drawSettingsButton(const std::string& label, bool* value, float x, float y, float width) {
+    bool clicked = false;
+    
+    // Draw button background
+    sf::RectangleShape button;
+    button.setSize(sf::Vector2f(width, 30));
+    button.setPosition(sf::Vector2f(x, y));
+    button.setFillColor(*value ? sf::Color(50, 150, 50) : sf::Color(150, 50, 50));
+    button.setOutlineColor(sf::Color::White);
+    button.setOutlineThickness(1);
+    window.draw(button);
+    
+    // Draw button text
+    sf::Text buttonText(font, sf::String(label + ": " + (*value ? "ON" : "OFF")), 14);
+    buttonText.setFillColor(sf::Color::White);
+    
+    // Center text on button
+    sf::FloatRect textBounds = buttonText.getGlobalBounds();
+    buttonText.setPosition(sf::Vector2f(
+        x + width/2 - textBounds.size.x/2,
+        y + 15 - textBounds.size.y/2
+    ));
+    window.draw(buttonText);
+    
+    // Check if button was clicked
+    if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
+        sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+        if (mousePos.x >= x && mousePos.x <= x + width &&
+            mousePos.y >= y && mousePos.y <= y + 30) {
+            *value = !(*value);
+            clicked = true;
+        }
+    }
+    
+    return clicked;
+}
+
+bool Game::drawSlider(const std::string& label, float* value, float min, float max, float x, float y, float width) {
+    bool changed = false;
+    
+    // Draw slider label
+    sf::Text sliderLabel(font, sf::String(label + ": " + std::to_string(*value)), 14);
+    sliderLabel.setFillColor(sf::Color::White);
+    sliderLabel.setPosition(sf::Vector2f(x, y));
+    window.draw(sliderLabel);
+    
+    // Draw slider track
+    sf::RectangleShape track;
+    track.setSize(sf::Vector2f(width, 5));
+    track.setPosition(sf::Vector2f(x, y + 25));
+    track.setFillColor(sf::Color(100, 100, 100));
+    window.draw(track);
+    
+    // Draw slider handle
+    float handlePos = x + ((*value - min) / (max - min)) * width;
+    sf::CircleShape handle;
+    handle.setRadius(8);
+    handle.setPosition(sf::Vector2f(handlePos - 8, y + 25 - 5));
+    handle.setFillColor(sf::Color(200, 200, 200));
+    window.draw(handle);
+    
+    // Check if slider is being dragged
+    if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
+        sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+        if (mousePos.y >= y + 15 && mousePos.y <= y + 35 &&
+            mousePos.x >= x && mousePos.x <= x + width) {
+            // Calculate new value based on mouse position
+            float newValue = min + ((mousePos.x - x) / width) * (max - min);
+            // Clamp value to range
+            newValue = std::max(min, std::min(max, newValue));
+            
+            if (*value != newValue) {
+                *value = newValue;
+                changed = true;
+            }
+        }
+    }
+    
+    return changed;
+}
+
+void Game::drawColorPicker(const std::string& label, sf::Color* color, float x, float y) {
+    // Draw color picker label
+    sf::Text colorLabel(font, sf::String(label), 14);
+    colorLabel.setFillColor(sf::Color::White);
+    colorLabel.setPosition(sf::Vector2f(x, y));
+    window.draw(colorLabel);
+    
+    // Draw current color preview
+    sf::RectangleShape colorPreview;
+    colorPreview.setSize(sf::Vector2f(30, 30));
+    colorPreview.setPosition(sf::Vector2f(x + 160, y));
+    colorPreview.setFillColor(*color);
+    colorPreview.setOutlineColor(sf::Color::White);
+    colorPreview.setOutlineThickness(1);
+    window.draw(colorPreview);
+    
+    // Draw RGB sliders
+    // Create local float variables for RGB values
+    float r = static_cast<float>(color->r);
+    float g = static_cast<float>(color->g);
+    float b = static_cast<float>(color->b);
+    
+    bool rChanged = drawSlider("R", &r, 0, 255, x + 200, y, 150);
+    bool gChanged = drawSlider("G", &g, 0, 255, x + 200, y + 30, 150);
+    bool bChanged = drawSlider("B", &b, 0, 255, x + 200, y + 60, 150);
+    
+    // Update color if any slider changed
+    if (rChanged || gChanged || bChanged) {
+        color->r = static_cast<uint8_t>(r);
+        color->g = static_cast<uint8_t>(g);
+        color->b = static_cast<uint8_t>(b);
+    }
+}
+
+void Game::drawTabButton(const std::string& label, int tabId, int* currentTabId, float x, float y, float width) {
+    bool isActive = (tabId == *currentTabId);
+    
+    // Draw tab button
+    sf::RectangleShape tabButton;
+    tabButton.setSize(sf::Vector2f(width, 30));
+    tabButton.setPosition(sf::Vector2f(x, y));
+    tabButton.setFillColor(isActive ? sf::Color(80, 80, 100) : sf::Color(50, 50, 70));
+    tabButton.setOutlineColor(sf::Color::White);
+    tabButton.setOutlineThickness(isActive ? 2 : 1);
+    window.draw(tabButton);
+    
+    // Draw tab text
+    sf::Text tabText(font, sf::String(label), 16);
+    tabText.setFillColor(sf::Color::White);
+    
+    // Center text on button
+    sf::FloatRect textBounds = tabText.getGlobalBounds();
+    tabText.setPosition(sf::Vector2f(
+        x + width/2 - textBounds.size.x/2,
+        y + 15 - textBounds.size.y/2
+    ));
+    window.draw(tabText);
+    
+    // Check if tab was clicked
+    if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
+        sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+        if (mousePos.x >= x && mousePos.x <= x + width &&
+            mousePos.y >= y && mousePos.y <= y + 30) {
+            *currentTabId = tabId;
+        }
     }
 } 
