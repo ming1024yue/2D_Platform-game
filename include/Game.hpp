@@ -6,6 +6,9 @@
 #include "Enemy.hpp"
 #include "LightingSystem.hpp"
 #include "AssetManager.hpp"
+#include "Physics.hpp"
+#include "imgui.h"
+#include "imgui-SFML.h"
 
 // Game states enum
 enum class GameState {
@@ -18,7 +21,7 @@ enum class GameState {
 class Game {
 public:
     Game();
-    ~Game() = default;
+    ~Game();
     void run();
 
 private:
@@ -40,27 +43,27 @@ private:
     void nextLevel();
     void checkLevelCompletion();
     void loadAssets();
+    void drawDebugBoxes();
     
-    // Debug panel methods
-    void drawDebugPanel();
-    void initializeDebugPanel();
-    bool drawSettingsButton(const std::string& label, bool* value, float x, float y, float width = 150.0f);
-    bool drawSlider(const std::string& label, float* value, float min, float max, float x, float y, float width = 150.0f);
-    void drawColorPicker(const std::string& label, sf::Color* color, float x, float y);
-    void drawTabButton(const std::string& label, int tabId, int* currentTabId, float x, float y, float width = 120.0f);
+    // ImGui methods
+    void initializeImGui();
+    void updateImGui();
+    void renderImGui();
+    void shutdownImGui();
     
-    // Helper to create a heart shape
-    sf::RectangleShape createHeartIcon(float x, float y, bool filled);
-
     // FPS counter methods
     void updateFPS();
     void drawFPS();
+    
+    // Helper to create a heart shape
+    sf::RectangleShape createHeartIcon(float x, float y, bool filled);
 
     sf::RenderWindow window;
     sf::View gameView;
     sf::View uiView; // Separate view for UI elements that don't scroll
     sf::View miniMapView; // View for the mini-map
     sf::Clock clock;
+    sf::Clock imguiClock; // Clock for ImGui updates
     Player player;
     std::vector<sf::RectangleShape> platforms;
     std::vector<sf::RectangleShape> ladders;
@@ -77,6 +80,9 @@ private:
     LightingSystem lightingSystem;
     int playerLightIndex; // Index of the player's light
     bool showLighting; // Flag to toggle lighting visibility
+    
+    // Physics system
+    PhysicsSystem physicsSystem;
     
     // Mini-map elements
     sf::RectangleShape miniMapBorder;
@@ -98,10 +104,7 @@ private:
     sf::Text restartText;
     std::vector<sf::RectangleShape> heartIcons; // Heart icons for health display
     
-    // Debug panel elements
-    sf::RectangleShape debugPanelBackground;
-    sf::Text debugPanelTitle;
-    int currentDebugTab;
+    // Settings variables
     bool showBoundingBoxes;
     float gameSpeed;
     sf::Color platformColor;
@@ -109,6 +112,10 @@ private:
     sf::Color enemyBorderColor;
     float spriteScale;
     float boundaryBoxHeight;
+    
+    // ImGui UI state variables
+    bool showImGuiDemo;
+    bool useImGuiInterface;
     
     // FPS tracking variables
     sf::Clock fpsClock;
