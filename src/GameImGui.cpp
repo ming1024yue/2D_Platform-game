@@ -139,12 +139,21 @@ void Game::draw() {
         float leftX = viewCenter.x - viewSize.x / 2.0f;
         float rightX = viewCenter.x + viewSize.x / 2.0f;
         
+        // Calculate visible top and bottom
+        float topY = viewCenter.y - viewSize.y / 2.0f;
+        float bottomY = viewCenter.y + viewSize.y / 2.0f;
+        
         // Determine the first tile position (round down to nearest tile width)
         float startX = std::floor(leftX / backgroundTextureSize.x) * backgroundTextureSize.x;
         
+        // Scale the background sprite to fill the screen height
+        float scaleY = viewSize.y / backgroundTextureSize.y;
+        float scaleX = 1.0f; // Keep original width for tiling
+        backgroundSprite->setScale(sf::Vector2f(scaleX, scaleY));
+        
         // Draw enough tiles to cover the visible area plus a bit extra
         for (float x = startX; x < rightX + backgroundTextureSize.x; x += backgroundTextureSize.x) {
-            backgroundSprite->setPosition(sf::Vector2f(x, 0));
+            backgroundSprite->setPosition(sf::Vector2f(x, topY));
             window.draw(*backgroundSprite);
         }
     }

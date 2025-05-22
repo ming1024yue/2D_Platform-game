@@ -1,0 +1,10 @@
+This file is a placeholder for a desert background image.
+The desert background should have:
+- Sandy dunes in warm tones (tan, orange, amber)
+- Possibly some cactus or desert plants
+- A hot, bright sky (perhaps with a sun)
+- Maybe some rock formations or mesas in the distance
+- Warm lighting suggesting a hot environment
+
+Recommended image dimensions: 800x600 pixels or larger with a 4:3 aspect ratio
+File format: PNG with transparency if needed 

@@ -56,6 +56,16 @@ private:
     void loadAssets();
     void drawDebugBoxes();
     
+    // Level-specific layouts
+    void forestLevelPlatforms();
+    void desertLevelPlatforms();
+    void snowLevelPlatforms();
+    
+    // Level-specific enemy patterns
+    void initializeForestEnemies();
+    void initializeDesertEnemies();
+    void initializeSnowEnemies();
+    
     // ImGui methods
     void initializeImGui();
     void updateImGui();
