@@ -53,6 +53,7 @@ private:
     void checkGameOver();
     void resetGame();
     void nextLevel();
+    void jumpToLevel(int level);  // New method for jumping to specific levels
     void checkLevelCompletion();
     void loadAssets();
     void drawDebugBoxes();
@@ -139,6 +140,7 @@ private:
     sf::Color enemyBorderColor;
     float spriteScale;
     float boundaryBoxHeight;
+    bool showEnemies;  // Toggle to show/hide enemies for testing
     
     // Debug grid variables
     bool showDebugGrid;

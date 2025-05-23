@@ -16,7 +16,7 @@ static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
 }
 
 Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), "2D Platform Puzzle Game"),
-               player(50.f, WINDOW_HEIGHT - 100.f), // Increase initial height above ground
+               player(50.f, WINDOW_HEIGHT - 100.f, physicsSystem), // Pass physicsSystem reference
                playerHit(false),
                playerHitCooldown(0.f),
                currentState(GameState::Playing),
@@ -41,6 +41,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                enemyBorderColor(255, 0, 0),
                spriteScale(4.0f),
                boundaryBoxHeight(0.67f),
+               showEnemies(false),  // Show enemies by default
                showDebugGrid(false),
                gridSize(50.0f),
                gridColor(128, 128, 128, 64),  // Semi-transparent gray
@@ -145,18 +146,22 @@ void Game::update() {
     
     if (currentState == GameState::Playing) {
         // Update player
-        player.update(platforms, ladders);
+        player.update(deltaTime, platforms, ladders);
         
-        // Update enemies
-        for (auto& enemy : enemies) {
-            enemy.update(platforms);
+        // Update enemies only if they're visible
+        if (showEnemies) {
+            for (auto& enemy : enemies) {
+                enemy.update(platforms);
+            }
         }
         
         // Update physics system
         physicsSystem.update(deltaTime, player, enemies);
         
-        // Check for player-enemy collisions
-        checkPlayerEnemyCollision();
+        // Check for player-enemy collisions only if enemies are visible
+        if (showEnemies) {
+            checkPlayerEnemyCollision();
+        }
         
         // Check if game is over
         checkGameOver();
@@ -557,16 +562,16 @@ void Game::forestLevelPlatforms() {
 }
 
 void Game::desertLevelPlatforms() {
-    // Ground platform - desert has some gaps in the ground
+    // Ground platform - desert has some gaps in the ground, but safer layout
     sf::RectangleShape ground1;
-    ground1.setSize(sf::Vector2f(900.f, 60.f));
+    ground1.setSize(sf::Vector2f(950.f, 60.f));  // Extended to x=950 to reduce gap
     ground1.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - 60.f));
     ground1.setFillColor(platformColor);
     platforms.push_back(ground1);
     
     sf::RectangleShape ground2;
-    ground2.setSize(sf::Vector2f(800.f, 60.f));
-    ground2.setPosition(sf::Vector2f(1000.f, WINDOW_HEIGHT - 60.f));
+    ground2.setSize(sf::Vector2f(850.f, 60.f));  // Extended and moved closer
+    ground2.setPosition(sf::Vector2f(980.f, WINDOW_HEIGHT - 60.f));  // Moved from 1000 to 980 (smaller gap)
     ground2.setFillColor(platformColor);
     platforms.push_back(ground2);
     
@@ -576,12 +581,12 @@ void Game::desertLevelPlatforms() {
     ground3.setFillColor(platformColor);
     platforms.push_back(ground3);
 
-    // Desert has more scattered platforms with various heights
-    // Platform 1-3
+    // Desert has more scattered platforms with various heights - improved layout
+    // Platform 1-3 with better spacing and less height difference
     for (int i = 0; i < 3; i++) {
         sf::RectangleShape platform;
-        platform.setSize(sf::Vector2f(150.f, 20.f));
-        platform.setPosition(sf::Vector2f(200.f + i * 250.f, 400.f - i * 40.f));
+        platform.setSize(sf::Vector2f(180.f, 20.f));  // Wider platforms for easier landing
+        platform.setPosition(sf::Vector2f(200.f + i * 230.f, 420.f - i * 30.f));  // Reduced height difference from 40 to 30
         platform.setFillColor(platformColor);
         platforms.push_back(platform);
     }
@@ -857,7 +862,7 @@ void Game::checkGameOver() {
 
 void Game::resetGame() {
     // Reset player
-    player = Player(50.f, WINDOW_HEIGHT - 100.f); // Start player higher above the ground
+    player.reset(50.f, WINDOW_HEIGHT - 100.f); // Start player higher above the ground
     
     // Set player collision box
     player.setCollisionBoxSize(sf::Vector2f(28.f, 28.f));
@@ -1302,15 +1307,15 @@ void Game::nextLevel() {
         // Level-specific physics changes
         switch (currentLevel % 3) {
             case 1: // Forest level - normal physics
-                physicsSystem.setGravity(980.f);
+                physicsSystem.setGravity(10.0f);
                 physicsSystem.setJumpForce(400.f);
                 break;
-            case 2: // Desert level - higher gravity, lower jumps
-                physicsSystem.setGravity(1200.f);
-                physicsSystem.setJumpForce(450.f);
+            case 2: // Desert level - same gravity, slightly different jump
+                physicsSystem.setGravity(10.0f);
+                physicsSystem.setJumpForce(420.f);
                 break;
-            case 0: // Snow level - lower gravity, higher jumps
-                physicsSystem.setGravity(800.f);
+            case 0: // Snow level - same gravity, different jump
+                physicsSystem.setGravity(10.0f);
                 physicsSystem.setJumpForce(350.f);
                 break;
         }
@@ -1415,6 +1420,61 @@ void Game::updateImGui() {
                 if (ImGui::BeginTabItem("Gameplay")) {
                     ImGui::SliderFloat("Game Speed", &gameSpeed, 0.1f, 2.0f);
                     ImGui::SliderFloat("Player Speed", &playerSpeed, 50.0f, 400.0f);
+                    
+                    ImGui::Separator();
+                    ImGui::Text("Testing Controls");
+                    ImGui::Checkbox("Show Enemies", &showEnemies);
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Toggle enemy visibility for easier testing");
+                    }
+                    
+                    ImGui::Separator();
+                    ImGui::Text("Level Control");
+                    
+                    // Current level display
+                    ImGui::Text("Current Level: %d", currentLevel);
+                    
+                    // Level selection
+                    static int selectedLevel = currentLevel;
+                    if (ImGui::SliderInt("Select Level", &selectedLevel, 1, 20)) {
+                        // Level will be changed when "Jump to Level" button is pressed
+                    }
+                    
+                    // Jump to level button
+                    if (ImGui::Button("Jump to Level")) {
+                        jumpToLevel(selectedLevel);
+                        // Sync the slider with current level after jumping
+                        selectedLevel = currentLevel;
+                    }
+                    
+                    ImGui::SameLine();
+                    
+                    // Quick level buttons
+                    if (ImGui::Button("Level 1 (Forest)")) {
+                        jumpToLevel(1);
+                        selectedLevel = 1;
+                    }
+                    
+                    if (ImGui::Button("Level 2 (Desert)")) {
+                        jumpToLevel(2);
+                        selectedLevel = 2;
+                    }
+                    
+                    ImGui::SameLine();
+                    
+                    if (ImGui::Button("Level 3 (Snow)")) {
+                        jumpToLevel(3);
+                        selectedLevel = 3;
+                    }
+                    
+                    // Level theme info
+                    ImGui::Separator();
+                    ImGui::Text("Level Themes:");
+                    ImGui::BulletText("Levels 1, 4, 7... = Forest (Normal physics)");
+                    ImGui::BulletText("Levels 2, 5, 8... = Desert (Higher gravity)");
+                    ImGui::BulletText("Levels 3, 6, 9... = Snow (Lower gravity)");
+                    
+                    ImGui::Separator();
                     
                     if (ImGui::Button("Reset Level")) {
                         resetGame();
@@ -2092,4 +2152,190 @@ void Game::syncPlatformsWithPhysics() {
     }
     
     std::cout << "Synchronized " << platforms.size() << " platforms with physics components" << std::endl;
+}
+
+void Game::jumpToLevel(int level) {
+    // Ensure level is valid (at least 1)
+    if (level < 1) {
+        level = 1;
+    }
+    
+    // Set the current level
+    currentLevel = level;
+    
+    // Reset player position and health
+    player.reset(50.f, WINDOW_HEIGHT - 100.f);
+    player.setCollisionBoxSize(sf::Vector2f(28.f, 28.f));
+    
+    // Reset view
+    gameView.setCenter(sf::Vector2f(WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f));
+    
+    // Reset game state
+    currentState = GameState::Playing;
+    playerHit = false;
+    playerHitCooldown = 0.f;
+    
+    // Update level text
+    levelText.setString("Level " + std::to_string(currentLevel));
+    sf::FloatRect levelBounds = levelText.getGlobalBounds();
+    levelText.setPosition(sf::Vector2f(
+        WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
+        20.f
+    ));
+    
+    // Change background and theme based on level
+    try {
+        // Different backgrounds for each level
+        std::string levelBackgroundPath;
+        std::vector<std::string> alternativePaths;
+        
+        switch (currentLevel % 3) {
+            case 1: // Forest theme (levels 1, 4, 7...)
+                levelBackgroundPath = "assets/images/backgrounds/forest/forest_background.png";
+                platformColor = sf::Color(34, 139, 34); // Forest green
+                alternativePaths = {
+                    "assets/images/backgrounds/forest_background.png",
+                    "assets/images/backgrounds/background.png",
+                    "../assets/images/backgrounds/background.png"
+                };
+                break;
+                
+            case 2: // Desert theme (levels 2, 5, 8...)
+                levelBackgroundPath = "assets/images/backgrounds/desert/desert_background.png";
+                platformColor = sf::Color(210, 180, 140); // Desert sand color
+                alternativePaths = {
+                    "assets/images/backgrounds/desert_background.png",
+                    "assets/images/backgrounds/background.png",
+                    "../assets/images/backgrounds/background.png"
+                };
+                break;
+                
+            case 0: // Snow theme (levels 3, 6, 9...)
+                levelBackgroundPath = "assets/images/backgrounds/snow/snow_background.png";
+                platformColor = sf::Color(200, 220, 255); // Light blue for snow
+                alternativePaths = {
+                    "assets/images/backgrounds/snow_background.png",
+                    "assets/images/backgrounds/background.png",
+                    "../assets/images/backgrounds/background.png"
+                };
+                break;
+        }
+        
+        // Try to load the level-specific background
+        bool loaded = false;
+        try {
+            assets.loadTexture("background", levelBackgroundPath);
+            std::cout << "Successfully loaded background: " << levelBackgroundPath << std::endl;
+            loaded = true;
+        } 
+        catch (const std::exception& e) {
+            std::cerr << "Failed to load primary background: " << e.what() << std::endl;
+            
+            // Try alternative paths
+            for (const auto& path : alternativePaths) {
+                try {
+                    assets.loadTexture("background", path);
+                    std::cout << "Successfully loaded alternative background: " << path << std::endl;
+                    loaded = true;
+                    break;
+                } catch (const std::exception& innerE) {
+                    std::cerr << "Failed to load alternative background from " << path << ": " << innerE.what() << std::endl;
+                }
+            }
+        }
+        
+        // If we loaded a background texture, create the sprite
+        if (loaded) {
+            // Update the sprite with new texture
+            backgroundSprite = std::make_unique<sf::Sprite>(assets.getTexture("background"));
+            backgroundTextureSize = assets.getTexture("background").getSize();
+            useBackgroundPlaceholder = false;
+            
+            std::cout << "Successfully created background sprite with dimensions: " 
+                      << backgroundTextureSize.x << "x" << backgroundTextureSize.y << std::endl;
+            
+            // Apply a slight tint to the background based on the level theme
+            if (currentLevel % 3 == 1) { // Forest - slightly more green
+                backgroundSprite->setColor(sf::Color(230, 255, 230));
+            } 
+            else if (currentLevel % 3 == 2) { // Desert - warm/orange tint
+                backgroundSprite->setColor(sf::Color(255, 240, 220));
+            } 
+            else { // Snow - cool/blue tint
+                backgroundSprite->setColor(sf::Color(230, 240, 255));
+            }
+        }
+        // If we couldn't load a background texture, use the placeholder
+        else {
+            useBackgroundPlaceholder = true;
+            
+            // Adjust placeholder color based on level theme
+            if (currentLevel % 3 == 1) { // Forest
+                backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
+            } 
+            else if (currentLevel % 3 == 2) { // Desert
+                backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
+            } 
+            else { // Snow
+                backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to load background for level " << currentLevel << ": " << e.what() << std::endl;
+        useBackgroundPlaceholder = true;
+        
+        // Adjust placeholder color based on level theme
+        if (currentLevel % 3 == 1) { // Forest
+            backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
+        } 
+        else if (currentLevel % 3 == 2) { // Desert
+            backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
+        } 
+        else { // Snow
+            backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
+        }
+    }
+    
+    // Reinitialize game elements with new variations based on level
+    initializePlatforms();
+    initializeLadders();
+    initializeEnemies();
+    initializeUI();
+    initializeMiniMap();
+    initializeLights();
+    
+    // Apply level-specific physics and difficulty
+    if (currentLevel > 1) {
+        // Add extra enemies based on level
+        for (int i = 0; i < currentLevel; i++) {
+            float x = 500.f + (i * 400.f);  // Space them out
+            float y = WINDOW_HEIGHT - 70.f; // On the ground
+            float patrolDistance = 160.f + (currentLevel * 20.f); // Longer patrol for higher levels
+            enemies.push_back(Enemy(x, y, patrolDistance));
+        }
+    }
+    
+    // Level-specific physics changes
+    switch (currentLevel % 3) {
+        case 1: // Forest level - normal physics
+            physicsSystem.setGravity(10.0f);
+            physicsSystem.setJumpForce(400.f);
+            break;
+        case 2: // Desert level - same gravity, slightly different jump
+            physicsSystem.setGravity(10.0f);
+            physicsSystem.setJumpForce(420.f);
+            break;
+        case 0: // Snow level - same gravity, different jump
+            physicsSystem.setGravity(10.0f);
+            physicsSystem.setJumpForce(350.f);
+            break;
+    }
+    
+    // Initialize physics system
+    physicsSystem.initialize();
+    physicsSystem.initializePlayer(player);
+    physicsSystem.initializePlatforms(platforms);
+    physicsSystem.initializeEnemies(enemies);
+    
+    std::cout << "Jumped to level " << currentLevel << " for testing" << std::endl;
 }

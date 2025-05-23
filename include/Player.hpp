@@ -2,10 +2,13 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 
+// Forward declaration to avoid circular includes
+class PhysicsSystem;
+
 class Player {
 public:
-    Player(float x, float y);
-    void update(const std::vector<sf::RectangleShape>& platforms, const std::vector<sf::RectangleShape>& ladders);
+    Player(float x, float y, PhysicsSystem& physics);
+    void update(float deltaTime, const std::vector<sf::RectangleShape>& platforms, const std::vector<sf::RectangleShape>& ladders);
     void draw(sf::RenderWindow& window);
     void handleInput();
     
@@ -35,6 +38,9 @@ public:
     int getHealth() const { return health; }
     void decreaseHealth() { if (health > 0) health--; }
     void resetHealth() { health = maxHealth; }
+    
+    // Reset player to initial state
+    void reset(float x, float y);
 
 private:
     sf::Vector2f position;           // Player's position in the world
@@ -50,7 +56,10 @@ private:
     int health;
     int maxHealth;
     
-    static constexpr float PLAYER_SPEED = 5.0f;
+    // Reference to physics system
+    PhysicsSystem& physicsSystem;
+    
+    static constexpr float PLAYER_SPEED = 300.0f;
     static constexpr float CLIMB_SPEED = 3.0f;
     static constexpr float JUMP_FORCE = -15.0f;
     static constexpr float GRAVITY = 0.6f;

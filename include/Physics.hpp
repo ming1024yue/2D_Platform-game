@@ -80,6 +80,9 @@ public:
     
     void setUseOneWayPlatforms(bool use) { useOneWayPlatforms = use; }
     bool getUseOneWayPlatforms() const { return useOneWayPlatforms; }
+
+    void setPlayerAcceleration(float a) { playerAcceleration = a; }
+    float getPlayerAcceleration() const { return playerAcceleration; }
     
     // Access to physics components for rendering/debugging
     const PhysicsComponent& getPlayerPhysicsComponent() const { return playerPhysics; }
@@ -115,6 +118,7 @@ private:
     float enemyOffsetY;
     float enemyBounceFactor;
     float platformFriction;
+    float playerAcceleration;
     bool useOneWayPlatforms;
     
     // Physics components

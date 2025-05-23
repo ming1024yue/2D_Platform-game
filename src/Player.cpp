@@ -1,4 +1,5 @@
 #include "Player.hpp"
+#include "Physics.hpp"
 #include <iostream>
 
 // Helper function for rectangle intersection (SFML 3.x compatibility)
@@ -9,7 +10,7 @@ static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
            a.position.y + a.size.y > b.position.y;
 }
 
-Player::Player(float x, float y) {
+Player::Player(float x, float y, PhysicsSystem& physics) : physicsSystem(physics) {
     position = sf::Vector2f(x, y);
     collisionOffset = sf::Vector2f(0.f, 0.f);
     
@@ -52,14 +53,17 @@ void Player::setCollisionBoxOffset(const sf::Vector2f& offset) {
 void Player::handleInput() {
     // Handle left and right movement
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
-        velocity.x = -PLAYER_SPEED;
+        physicsSystem.setPlayerAcceleration(-1.0f);
+        velocity.x = PLAYER_SPEED  * physicsSystem.getPlayerAcceleration();
         facingLeft = true; // Update facing direction
     }
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
-        velocity.x = PLAYER_SPEED;
+        physicsSystem.setPlayerAcceleration(1.0f);
+        velocity.x = PLAYER_SPEED * physicsSystem.getPlayerAcceleration();
         facingLeft = false; // Update facing direction
     }
     else {
+        physicsSystem.setPlayerAcceleration(0.0f);
         velocity.x = 0;
         // Keep the previous facing direction when not moving
     }
@@ -124,7 +128,7 @@ bool Player::checkPlatformAbove(const std::vector<sf::RectangleShape>& platforms
     return false;
 }
 
-void Player::update(const std::vector<sf::RectangleShape>& platforms, const std::vector<sf::RectangleShape>& ladders) {
+void Player::update(float deltaTime,const std::vector<sf::RectangleShape>& platforms, const std::vector<sf::RectangleShape>& ladders) {
     // Store previous position for collision resolution
     sf::Vector2f prevPosition = position;
     
@@ -150,12 +154,15 @@ void Player::update(const std::vector<sf::RectangleShape>& platforms, const std:
     // Apply gravity only when not on ladder and not being handled by physics system
     if (!onLadder && !onGround) {
         // Use a reduced gravity when physics system is active
+    
         velocity.y += GRAVITY;
         std::cout << "Applied gravity, new velocity.y = " << velocity.y << std::endl;
     }
     
     // Update position
-    position += velocity;
+    // deltaTime = 0.17f;
+    position.x += velocity.x * deltaTime + 0.5f * physicsSystem.getPlayerAcceleration()*deltaTime*deltaTime;
+    position.y += velocity.y;
     collisionBox.setPosition(position + collisionOffset);
     
     // Keep player from going off the left edge only
@@ -247,4 +254,18 @@ void Player::update(const std::vector<sf::RectangleShape>& platforms, const std:
 void Player::draw(sf::RenderWindow& window) {
     // Only draw the collision box for debugging
     window.draw(collisionBox);
+}
+
+void Player::reset(float x, float y) {
+    position = sf::Vector2f(x, y);
+    collisionBox.setPosition(position + collisionOffset);
+    velocity = sf::Vector2f(0.f, 0.f);
+    isJumping = false;
+    onGround = false;
+    onLadder = false;
+    facingLeft = false;
+    health = maxHealth;
+    
+    // Debug output for reset position
+    std::cout << "Player reset to: " << x << ", " << y << std::endl;
 } 

@@ -361,4 +361,5 @@ void PhysicsSystem::applyPhysicsToEntities(Player& player, std::vector<Enemy>& e
             enemies[i].setVelocity(enemyVel);
         }
     }
-} 
+}
+
