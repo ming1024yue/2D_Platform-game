@@ -180,43 +180,46 @@ void Game::draw() {
         window.draw(ladder);
     }
     
+    // Draw collision boxes for debugging
+    drawDebugBoxes();
+    
     // Draw enemies
-for (size_t enemyIdx = 0; enemyIdx < enemies.size(); enemyIdx++) {
-    const auto& enemy = enemies[enemyIdx];
-    // Then draw enemy sprite on top if available
-    if (!useEnemyPlaceholder && enemySprite) {
-        // Position and scale the sprite to match the enemy shape
-        sf::FloatRect bounds = enemy.getGlobalBounds();
-        
-        // Get enemy velocity to determine direction
-        sf::Vector2f enemyVelocity = enemy.getVelocity();
-        bool facingLeft = enemyVelocity.x < 0;
-        
-        // Calculate scale to match the shape size and apply enlargement factor
-        sf::Vector2u textureSize = enemySprite->getTexture().getSize();
-        float scaleX = bounds.size.x / textureSize.x * spriteScale;
-        float scaleY = bounds.size.y / textureSize.y * spriteScale;
-        
-        // Flip horizontally if facing left by making scale negative
-        if (facingLeft) {
-            scaleX = -scaleX;
-        }
-        
-        enemySprite->setScale(sf::Vector2f(scaleX, scaleY));
-        
-        // Center the sprite on the shape, adjust for flipping
-        float offsetX;
-        if (facingLeft) {
-                    // When flipped, we need to adjust the X position
-        // The correct adjustment for a flipped sprite
-        offsetX = (bounds.size.x - (textureSize.x * scaleX)) / 2.0f;
-        } else {
-            offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
-        }
-        float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
-        enemySprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
-        
-        window.draw(*enemySprite);
+    for (size_t enemyIdx = 0; enemyIdx < enemies.size(); enemyIdx++) {
+        const auto& enemy = enemies[enemyIdx];
+        // Then draw enemy sprite on top if available
+        if (!useEnemyPlaceholder && enemySprite) {
+            // Position and scale the sprite to match the enemy shape
+            sf::FloatRect bounds = enemy.getGlobalBounds();
+            
+            // Get enemy velocity to determine direction
+            sf::Vector2f enemyVelocity = enemy.getVelocity();
+            bool facingLeft = enemyVelocity.x < 0;
+            
+            // Calculate scale to match the shape size and apply enlargement factor
+            sf::Vector2u textureSize = enemySprite->getTexture().getSize();
+            float scaleX = bounds.size.x / textureSize.x * spriteScale;
+            float scaleY = bounds.size.y / textureSize.y * spriteScale;
+            
+            // Flip horizontally if facing left by making scale negative
+            if (facingLeft) {
+                scaleX = -scaleX;
+            }
+            
+            enemySprite->setScale(sf::Vector2f(scaleX, scaleY));
+            
+            // Center the sprite on the shape, adjust for flipping
+            float offsetX;
+            if (facingLeft) {
+                // When flipped, we need to adjust the X position
+                // The correct adjustment for a flipped sprite
+                offsetX = (bounds.size.x - (textureSize.x * scaleX)) / 2.0f;
+            } else {
+                offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
+            }
+            float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
+            enemySprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
+            
+            window.draw(*enemySprite);
             
             // Draw physics collision box only if enabled
             if (showBoundingBoxes) {
@@ -271,41 +274,41 @@ for (size_t enemyIdx = 0; enemyIdx < enemies.size(); enemyIdx++) {
     }
     
     // Draw player
-if (!usePlayerPlaceholder && playerSprite) {
-    // Position and scale the sprite to match the player shape
-    sf::FloatRect bounds = player.getGlobalBounds();
-    
-    // Get player velocity to determine direction
-    sf::Vector2f playerVelocity = player.getVelocity();
-    // For player, we also need to check the last pressed direction key
-    // since the player might be standing still but facing a direction
-    bool facingLeft = playerVelocity.x < 0 || player.isFacingLeft();
-    
-    // Calculate scale to match the shape size and apply enlargement factor
-    sf::Vector2u textureSize = playerSprite->getTexture().getSize();
-    float scaleX = bounds.size.x / textureSize.x * spriteScale;
-    float scaleY = bounds.size.y / textureSize.y * spriteScale;
-    
-    // Flip horizontally if facing left by making scale negative
-    if (facingLeft) {
-        scaleX = -scaleX;
-    }
-    
-    playerSprite->setScale(sf::Vector2f(scaleX, scaleY));
-    
-    // Center the sprite on the shape, adjust for flipping
-    float offsetX;
-    if (facingLeft) {
-        // When flipped, we need to adjust the X position 
-        // The correct adjustment for a flipped sprite
-        offsetX = (bounds.size.x - (textureSize.x * scaleX)) / 2.0f;
-    } else {
-        offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
-    }
-    float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
-    playerSprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
-    
-    window.draw(*playerSprite);
+    if (!usePlayerPlaceholder && playerSprite) {
+        // Position and scale the sprite to match the player shape
+        sf::FloatRect bounds = player.getGlobalBounds();
+        
+        // Get player velocity to determine direction
+        sf::Vector2f playerVelocity = player.getVelocity();
+        // For player, we also need to check the last pressed direction key
+        // since the player might be standing still but facing a direction
+        bool facingLeft = playerVelocity.x < 0 || player.isFacingLeft();
+        
+        // Calculate scale to match the shape size and apply enlargement factor
+        sf::Vector2u textureSize = playerSprite->getTexture().getSize();
+        float scaleX = bounds.size.x / textureSize.x * spriteScale;
+        float scaleY = bounds.size.y / textureSize.y * spriteScale;
+        
+        // Flip horizontally if facing left by making scale negative
+        if (facingLeft) {
+            scaleX = -scaleX;
+        }
+        
+        playerSprite->setScale(sf::Vector2f(scaleX, scaleY));
+        
+        // Center the sprite on the shape, adjust for flipping
+        float offsetX;
+        if (facingLeft) {
+            // When flipped, we need to adjust the X position 
+            // The correct adjustment for a flipped sprite
+            offsetX = (bounds.size.x - (textureSize.x * scaleX)) / 2.0f;
+        } else {
+            offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
+        }
+        float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
+        playerSprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
+        
+        window.draw(*playerSprite);
         
         // Draw physics collision box only if enabled
         if (showBoundingBoxes) {

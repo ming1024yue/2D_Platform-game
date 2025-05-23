@@ -1510,28 +1510,17 @@ void Game::updateImGui() {
 // Function to draw debug visualization
 void Game::drawDebugBoxes() {
     if (showBoundingBoxes) {
-        // Draw player's collision box
-        sf::RectangleShape playerCollisionBox;
-        sf::FloatRect physicsBox = physicsSystem.getPlayerPhysicsComponent().collisionBox;
-        
-        playerCollisionBox.setSize(sf::Vector2f(physicsBox.size.x, physicsBox.size.y));
-        playerCollisionBox.setPosition(sf::Vector2f(physicsBox.position.x, physicsBox.position.y));
-        playerCollisionBox.setFillColor(sf::Color(0, 255, 0, 50)); // Semi-transparent green
-        playerCollisionBox.setOutlineColor(sf::Color(0, 255, 0)); // Green outline
-        playerCollisionBox.setOutlineThickness(1.0f);
-        window.draw(playerCollisionBox);
-        
-        // Draw enemy collision boxes
-        for (size_t enemyIdx = 0; enemyIdx < enemies.size() && enemyIdx < physicsSystem.getEnemyPhysicsCount(); enemyIdx++) {
-            sf::RectangleShape enemyCollisionBox;
-            sf::FloatRect enemyPhysicsBox = physicsSystem.getEnemyPhysicsComponent(enemyIdx).collisionBox;
+        // Draw platform/ground collision boxes
+        for (size_t platformIdx = 0; platformIdx < physicsSystem.getPlatformPhysicsCount(); platformIdx++) {
+            sf::RectangleShape platformCollisionBox;
+            sf::FloatRect platformPhysicsBox = physicsSystem.getPlatformPhysicsComponent(platformIdx).collisionBox;
             
-            enemyCollisionBox.setSize(sf::Vector2f(enemyPhysicsBox.size.x, enemyPhysicsBox.size.y));
-            enemyCollisionBox.setPosition(sf::Vector2f(enemyPhysicsBox.position.x, enemyPhysicsBox.position.y));
-            enemyCollisionBox.setFillColor(sf::Color(255, 0, 0, 50)); // Semi-transparent red
-            enemyCollisionBox.setOutlineColor(sf::Color(255, 0, 0)); // Red outline
-            enemyCollisionBox.setOutlineThickness(1.0f);
-            window.draw(enemyCollisionBox);
+            platformCollisionBox.setSize(sf::Vector2f(platformPhysicsBox.size.x, platformPhysicsBox.size.y));
+            platformCollisionBox.setPosition(sf::Vector2f(platformPhysicsBox.position.x, platformPhysicsBox.position.y));
+            platformCollisionBox.setFillColor(sf::Color(0, 0, 255, 30)); // Semi-transparent blue
+            platformCollisionBox.setOutlineColor(sf::Color(0, 0, 255)); // Blue outline
+            platformCollisionBox.setOutlineThickness(1.0f);
+            window.draw(platformCollisionBox);
         }
     }
 }
