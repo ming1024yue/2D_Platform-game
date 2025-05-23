@@ -56,6 +56,7 @@ private:
     void checkLevelCompletion();
     void loadAssets();
     void drawDebugBoxes();
+    void drawDebugGrid();  // New method for drawing the canonical coordinate grid
     
     // Level-specific layouts
     void forestLevelPlatforms();
@@ -138,6 +139,13 @@ private:
     sf::Color enemyBorderColor;
     float spriteScale;
     float boundaryBoxHeight;
+    
+    // Debug grid variables
+    bool showDebugGrid;
+    float gridSize;
+    sf::Color gridColor;
+    sf::Color gridOriginColor;
+    sf::Color gridAxesColor;
     
     // ImGui UI state variables
     bool showImGuiDemo;

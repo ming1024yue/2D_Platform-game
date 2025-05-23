@@ -99,6 +99,12 @@ void Game::handleEvents() {
                 showLighting = !showLighting;
             }
             
+            // Toggle debug grid with G key
+            if (key->code == sf::Keyboard::Key::G) {
+                showDebugGrid = !showDebugGrid;
+                std::cout << "Debug grid " << (showDebugGrid ? "enabled" : "disabled") << std::endl;
+            }
+            
             // Toggle ImGui interface with F1 key - with safety checks
             if (key->code == sf::Keyboard::Key::F1) {
                 // Print debug info
@@ -166,6 +172,9 @@ void Game::draw() {
             window.draw(*backgroundSprite);
         }
     }
+    
+    // Draw debug grid for canonical coordinates
+    drawDebugGrid();
     
     // Draw platforms
     for (const auto& platform : platforms) {

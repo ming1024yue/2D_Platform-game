@@ -41,6 +41,11 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                enemyBorderColor(255, 0, 0),
                spriteScale(4.0f),
                boundaryBoxHeight(0.67f),
+               showDebugGrid(false),
+               gridSize(50.0f),
+               gridColor(128, 128, 128, 64),  // Semi-transparent gray
+               gridOriginColor(255, 255, 0, 128),  // Semi-transparent yellow for origin
+               gridAxesColor(255, 255, 255, 96),   // Semi-transparent white for axes
                fpsUpdateTime(0.0f),
                frameCount(0),
                currentFPS(0.0f),
@@ -1337,6 +1342,58 @@ void Game::updateImGui() {
                     ImGui::Checkbox("Show Bounding Boxes", &showBoundingBoxes);
                     ImGui::Checkbox("Show Mini-map", &showMiniMap);
                     
+                    // Debug grid controls
+                    ImGui::Separator();
+                    ImGui::Text("Debug Grid");
+                    ImGui::Checkbox("Show Debug Grid", &showDebugGrid);
+                    
+                    if (showDebugGrid) {
+                        ImGui::SliderFloat("Grid Size", &gridSize, 10.0f, 200.0f, "%.0f");
+                        
+                        // Grid color controls
+                        float gridColorArr[4] = {
+                            gridColor.r / 255.0f,
+                            gridColor.g / 255.0f,
+                            gridColor.b / 255.0f,
+                            gridColor.a / 255.0f
+                        };
+                        if (ImGui::ColorEdit4("Grid Color", gridColorArr)) {
+                            gridColor.r = static_cast<uint8_t>(gridColorArr[0] * 255);
+                            gridColor.g = static_cast<uint8_t>(gridColorArr[1] * 255);
+                            gridColor.b = static_cast<uint8_t>(gridColorArr[2] * 255);
+                            gridColor.a = static_cast<uint8_t>(gridColorArr[3] * 255);
+                        }
+                        
+                        // Origin axes color
+                        float originColorArr[4] = {
+                            gridOriginColor.r / 255.0f,
+                            gridOriginColor.g / 255.0f,
+                            gridOriginColor.b / 255.0f,
+                            gridOriginColor.a / 255.0f
+                        };
+                        if (ImGui::ColorEdit4("Origin Color", originColorArr)) {
+                            gridOriginColor.r = static_cast<uint8_t>(originColorArr[0] * 255);
+                            gridOriginColor.g = static_cast<uint8_t>(originColorArr[1] * 255);
+                            gridOriginColor.b = static_cast<uint8_t>(originColorArr[2] * 255);
+                            gridOriginColor.a = static_cast<uint8_t>(originColorArr[3] * 255);
+                        }
+                        
+                        // Major axes color
+                        float axesColorArr[4] = {
+                            gridAxesColor.r / 255.0f,
+                            gridAxesColor.g / 255.0f,
+                            gridAxesColor.b / 255.0f,
+                            gridAxesColor.a / 255.0f
+                        };
+                        if (ImGui::ColorEdit4("Major Axes Color", axesColorArr)) {
+                            gridAxesColor.r = static_cast<uint8_t>(axesColorArr[0] * 255);
+                            gridAxesColor.g = static_cast<uint8_t>(axesColorArr[1] * 255);
+                            gridAxesColor.b = static_cast<uint8_t>(axesColorArr[2] * 255);
+                            gridAxesColor.a = static_cast<uint8_t>(axesColorArr[3] * 255);
+                        }
+                    }
+                    
+                    ImGui::Separator();
                     ImGui::SliderFloat("Sprite Scale", &spriteScale, 1.0f, 8.0f);
                     
                     // Color pickers
@@ -1464,6 +1521,26 @@ void Game::updateImGui() {
                     ImGui::Text("FPS: %.1f", currentFPS);
                     ImGui::Text("Player Position: %.1f, %.1f", player.getPosition().x, player.getPosition().y);
                     
+                    // Grid coordinate information
+                    if (showDebugGrid) {
+                        ImGui::Separator();
+                        ImGui::Text("Grid Information");
+                        
+                        sf::Vector2f playerPos = player.getPosition();
+                        ImGui::Text("Player Grid Coords: %.1f, %.1f", 
+                                   playerPos.x / gridSize, playerPos.y / gridSize);
+                                   
+                        // View center coordinates
+                        sf::Vector2f viewCenter = gameView.getCenter();
+                        ImGui::Text("View Center: %.1f, %.1f", viewCenter.x, viewCenter.y);
+                        ImGui::Text("View Grid Coords: %.1f, %.1f", 
+                                   viewCenter.x / gridSize, viewCenter.y / gridSize);
+                                   
+                        // Origin information
+                        ImGui::Text("Grid Origin (0,0) at world position (0,0)");
+                        ImGui::Text("Grid size: %.0f units", gridSize);
+                    }
+                    
                     ImGui::EndTabItem();
                 }
                 
@@ -1534,6 +1611,88 @@ void Game::drawDebugBoxes() {
             platformCollisionBox.setOutlineThickness(1.0f);
             window.draw(platformCollisionBox);
         }
+    }
+}
+
+// Function to draw canonical coordinate grid for debugging
+void Game::drawDebugGrid() {
+    if (!showDebugGrid) return;
+    
+    // Get the current view bounds to only draw grid lines that are visible
+    sf::Vector2f viewCenter = gameView.getCenter();
+    sf::Vector2f viewSize = gameView.getSize();
+    
+    float leftX = viewCenter.x - viewSize.x / 2.0f;
+    float rightX = viewCenter.x + viewSize.x / 2.0f;
+    float topY = viewCenter.y - viewSize.y / 2.0f;
+    float bottomY = viewCenter.y + viewSize.y / 2.0f;
+    
+    // Calculate grid line start and end positions
+    int startGridX = static_cast<int>(std::floor(leftX / gridSize));
+    int endGridX = static_cast<int>(std::ceil(rightX / gridSize));
+    int startGridY = static_cast<int>(std::floor(topY / gridSize));
+    int endGridY = static_cast<int>(std::ceil(bottomY / gridSize));
+    
+    // Create vertex arrays for efficient rendering
+    sf::VertexArray gridLines(sf::PrimitiveType::Lines);
+    sf::VertexArray axisLines(sf::PrimitiveType::Lines);
+    sf::VertexArray originLines(sf::PrimitiveType::Lines);
+    
+    // Draw vertical grid lines
+    for (int x = startGridX; x <= endGridX; x++) {
+        float worldX = x * gridSize;
+        if (worldX >= leftX && worldX <= rightX) {
+            sf::Color lineColor = gridColor;
+            
+            // Use axis color for major axes (every 10th line or at coordinate 0)
+            if (x == 0) {
+                // This is the Y-axis (x=0)
+                originLines.append(sf::Vertex{{worldX, topY}, gridOriginColor});
+                originLines.append(sf::Vertex{{worldX, bottomY}, gridOriginColor});
+            } else if (x % 10 == 0) {
+                // Major grid line
+                axisLines.append(sf::Vertex{{worldX, topY}, gridAxesColor});
+                axisLines.append(sf::Vertex{{worldX, bottomY}, gridAxesColor});
+            } else {
+                // Regular grid line
+                gridLines.append(sf::Vertex{{worldX, topY}, lineColor});
+                gridLines.append(sf::Vertex{{worldX, bottomY}, lineColor});
+            }
+        }
+    }
+    
+    // Draw horizontal grid lines
+    for (int y = startGridY; y <= endGridY; y++) {
+        float worldY = y * gridSize;
+        if (worldY >= topY && worldY <= bottomY) {
+            sf::Color lineColor = gridColor;
+            
+            // Use axis color for major axes (every 10th line or at coordinate 0)
+            if (y == 0) {
+                // This is the X-axis (y=0)
+                originLines.append(sf::Vertex{{leftX, worldY}, gridOriginColor});
+                originLines.append(sf::Vertex{{rightX, worldY}, gridOriginColor});
+            } else if (y % 10 == 0) {
+                // Major grid line  
+                axisLines.append(sf::Vertex{{leftX, worldY}, gridAxesColor});
+                axisLines.append(sf::Vertex{{rightX, worldY}, gridAxesColor});
+            } else {
+                // Regular grid line
+                gridLines.append(sf::Vertex{{leftX, worldY}, lineColor});
+                gridLines.append(sf::Vertex{{rightX, worldY}, lineColor});
+            }
+        }
+    }
+    
+    // Draw the grid (in order: grid, major axes, then origin)
+    if (gridLines.getVertexCount() > 0) {
+        window.draw(gridLines);
+    }
+    if (axisLines.getVertexCount() > 0) {
+        window.draw(axisLines);
+    }
+    if (originLines.getVertexCount() > 0) {
+        window.draw(originLines);
     }
 }
 
