@@ -11,14 +11,18 @@ static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
 }
 
 PhysicsSystem::PhysicsSystem() : 
-    gravity(500.0f),
+    gravity(10.0f),
     terminalVelocity(600.0f),
     jumpForce(15.0f * 60.0f),
     playerCollisionWidth(1.0f),
     playerCollisionHeight(1.0f),
+    playerOffsetX(0.0f),
+    playerOffsetY(0.0f),
     playerBounceFactor(0.0f),
     enemyCollisionWidth(1.0f),
     enemyCollisionHeight(1.0f),
+    enemyOffsetX(0.0f),
+    enemyOffsetY(0.0f),
     enemyBounceFactor(0.1f),
     platformFriction(0.3f),
     useOneWayPlatforms(false),
@@ -47,8 +51,10 @@ void PhysicsSystem::initializePlayer(Player& player) {
     sf::FloatRect playerBounds = player.getGlobalBounds();
     float width = playerBounds.size.x * playerCollisionWidth;
     float height = playerBounds.size.y * playerCollisionHeight;
-    float offsetX = (playerBounds.size.x - width) / 2.0f;
-    float offsetY = playerBounds.size.y - height;
+    
+    // Apply custom offsets instead of automatic centering
+    float offsetX = playerBounds.size.x * playerOffsetX;
+    float offsetY = playerBounds.size.y * playerOffsetY;
     
     playerPhysics.collisionBox = sf::FloatRect(
         sf::Vector2f(playerBounds.position.x + offsetX, playerBounds.position.y + offsetY),
@@ -80,8 +86,10 @@ void PhysicsSystem::initializeEnemies(const std::vector<Enemy>& enemies) {
         // Adjust collision box based on settings
         float width = bounds.size.x * enemyCollisionWidth;
         float height = bounds.size.y * enemyCollisionHeight;
-        float offsetX = (bounds.size.x - width) / 2.0f;
-        float offsetY = bounds.size.y - height;
+        
+        // Apply custom offsets instead of automatic centering
+        float offsetX = bounds.size.x * enemyOffsetX; 
+        float offsetY = bounds.size.y * enemyOffsetY;
         
         pc.collisionBox = sf::FloatRect(
             sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY),
@@ -104,8 +112,10 @@ void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& 
     sf::FloatRect playerBounds = player.getGlobalBounds();
     float width = playerBounds.size.x * playerCollisionWidth;
     float height = playerBounds.size.y * playerCollisionHeight;
-    float offsetX = (playerBounds.size.x - width) / 2.0f;
-    float offsetY = playerBounds.size.y - height;
+    
+    // Apply custom offsets instead of automatic centering
+    float offsetX = playerBounds.size.x * playerOffsetX;
+    float offsetY = playerBounds.size.y * playerOffsetY;
     
     playerPhysics.collisionBox = sf::FloatRect(
         sf::Vector2f(playerBounds.position.x + offsetX, playerBounds.position.y + offsetY),
@@ -146,8 +156,10 @@ void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& 
         sf::FloatRect enemyBounds = enemies[i].getGlobalBounds();
         float width = enemyBounds.size.x * enemyCollisionWidth;
         float height = enemyBounds.size.y * enemyCollisionHeight;
-        float offsetX = (enemyBounds.size.x - width) / 2.0f;
-        float offsetY = enemyBounds.size.y - height;
+        
+        // Apply custom offsets instead of automatic centering
+        float offsetX = enemyBounds.size.x * enemyOffsetX;
+        float offsetY = enemyBounds.size.y * enemyOffsetY;
         
         enemyPhysics[i].collisionBox = sf::FloatRect(
             sf::Vector2f(enemyBounds.position.x + offsetX, enemyBounds.position.y + offsetY),

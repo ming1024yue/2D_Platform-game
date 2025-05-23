@@ -1364,6 +1364,8 @@ void Game::updateImGui() {
                     ImGui::Text("Player Collision:");
                     float playerWidth = physicsSystem.getPlayerCollisionWidth();
                     float playerHeight = physicsSystem.getPlayerCollisionHeight();
+                    float playerOffsetX = physicsSystem.getPlayerOffsetX();
+                    float playerOffsetY = physicsSystem.getPlayerOffsetY();
                     float playerBounce = physicsSystem.getPlayerBounceFactor();
                     
                     if (ImGui::SliderFloat("Player Width", &playerWidth, 0.5f, 1.5f, "%.2f")) {
@@ -1371,6 +1373,12 @@ void Game::updateImGui() {
                     }
                     if (ImGui::SliderFloat("Player Height", &playerHeight, 0.5f, 1.5f, "%.2f")) {
                         physicsSystem.setPlayerCollisionSize(playerWidth, playerHeight);
+                    }
+                    if (ImGui::SliderFloat("Player Offset X", &playerOffsetX, 0.0f, 1.0f, "%.2f")) {
+                        physicsSystem.setPlayerCollisionOffset(playerOffsetX, playerOffsetY);
+                    }
+                    if (ImGui::SliderFloat("Player Offset Y", &playerOffsetY, 0.0f, 1.0f, "%.2f")) {
+                        physicsSystem.setPlayerCollisionOffset(playerOffsetX, playerOffsetY);
                     }
                     if (ImGui::SliderFloat("Player Bounce", &playerBounce, 0.0f, 1.0f, "%.2f")) {
                         physicsSystem.setPlayerBounceFactor(playerBounce);
@@ -1382,6 +1390,8 @@ void Game::updateImGui() {
                     ImGui::Text("Enemy Collision:");
                     float enemyWidth = physicsSystem.getEnemyCollisionWidth();
                     float enemyHeight = physicsSystem.getEnemyCollisionHeight();
+                    float enemyOffsetX = physicsSystem.getEnemyOffsetX();
+                    float enemyOffsetY = physicsSystem.getEnemyOffsetY();
                     float enemyBounce = physicsSystem.getEnemyBounceFactor();
                     
                     if (ImGui::SliderFloat("Enemy Width", &enemyWidth, 0.5f, 1.5f, "%.2f")) {
@@ -1389,6 +1399,12 @@ void Game::updateImGui() {
                     }
                     if (ImGui::SliderFloat("Enemy Height", &enemyHeight, 0.5f, 1.5f, "%.2f")) {
                         physicsSystem.setEnemyCollisionSize(enemyWidth, enemyHeight);
+                    }
+                    if (ImGui::SliderFloat("Enemy Offset X", &enemyOffsetX, 0.0f, 1.0f, "%.2f")) {
+                        physicsSystem.setEnemyCollisionOffset(enemyOffsetX, enemyOffsetY);
+                    }
+                    if (ImGui::SliderFloat("Enemy Offset Y", &enemyOffsetY, 0.0f, 1.0f, "%.2f")) {
+                        physicsSystem.setEnemyCollisionOffset(enemyOffsetX, enemyOffsetY);
                     }
                     if (ImGui::SliderFloat("Enemy Bounce", &enemyBounce, 0.0f, 1.0f, "%.2f")) {
                         physicsSystem.setEnemyBounceFactor(enemyBounce);

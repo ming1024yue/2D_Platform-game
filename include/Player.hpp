@@ -52,7 +52,7 @@ private:
     
     static constexpr float PLAYER_SPEED = 5.0f;
     static constexpr float CLIMB_SPEED = 3.0f;
-    static constexpr float JUMP_FORCE = -20.0f;
+    static constexpr float JUMP_FORCE = -15.0f;
     static constexpr float GRAVITY = 0.6f;
     
     // Helper method for platform checks

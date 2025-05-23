@@ -48,6 +48,13 @@ public:
     float getPlayerCollisionWidth() const { return playerCollisionWidth; }
     float getPlayerCollisionHeight() const { return playerCollisionHeight; }
     
+    void setPlayerCollisionOffset(float offsetX, float offsetY) { 
+        playerOffsetX = offsetX; 
+        playerOffsetY = offsetY; 
+    }
+    float getPlayerOffsetX() const { return playerOffsetX; }
+    float getPlayerOffsetY() const { return playerOffsetY; }
+    
     void setPlayerBounceFactor(float f) { playerBounceFactor = f; }
     float getPlayerBounceFactor() const { return playerBounceFactor; }
     
@@ -57,6 +64,13 @@ public:
     }
     float getEnemyCollisionWidth() const { return enemyCollisionWidth; }
     float getEnemyCollisionHeight() const { return enemyCollisionHeight; }
+    
+    void setEnemyCollisionOffset(float offsetX, float offsetY) { 
+        enemyOffsetX = offsetX; 
+        enemyOffsetY = offsetY; 
+    }
+    float getEnemyOffsetX() const { return enemyOffsetX; }
+    float getEnemyOffsetY() const { return enemyOffsetY; }
     
     void setEnemyBounceFactor(float f) { enemyBounceFactor = f; }
     float getEnemyBounceFactor() const { return enemyBounceFactor; }
@@ -74,6 +88,12 @@ public:
     }
     size_t getEnemyPhysicsCount() const { return enemyPhysics.size(); }
     
+    // Access to platform physics components for visualization
+    const PhysicsComponent& getPlatformPhysicsComponent(size_t index) const {
+        return (index < platformPhysics.size()) ? platformPhysics[index] : playerPhysics; // Fallback to player if out of bounds
+    }
+    size_t getPlatformPhysicsCount() const { return platformPhysics.size(); }
+    
 private:
     // Helper methods
     void resolveCollisions(Player& player, std::vector<Enemy>& enemies);
@@ -86,9 +106,13 @@ private:
     float jumpForce;
     float playerCollisionWidth;
     float playerCollisionHeight;
+    float playerOffsetX;
+    float playerOffsetY;
     float playerBounceFactor;
     float enemyCollisionWidth;
     float enemyCollisionHeight;
+    float enemyOffsetX;
+    float enemyOffsetY;
     float enemyBounceFactor;
     float platformFriction;
     bool useOneWayPlatforms;
