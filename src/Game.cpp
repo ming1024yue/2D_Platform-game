@@ -202,11 +202,11 @@ void Game::loadAssets() {
         
         // Load backgrounds
         try {
-            // First attempt - try loading from the new organized folder structure
+            // First attempt - try loading from the new organized folder structure with more paths
             std::vector<std::string> backgroundPaths = {
-                "assets/images/backgrounds/snow/snow_background.png",
-                "assets/images/backgrounds/snow_background.png",
-                "assets/images/backgrounds/background.png"
+                "assets/images/backgrounds/forest/forest_background.png",
+                "assets/images/backgrounds/background.png",
+                "../assets/images/backgrounds/background.png"
             };
             
             bool loaded = false;
@@ -225,7 +225,8 @@ void Game::loadAssets() {
                 backgroundSprite = std::make_unique<sf::Sprite>(assets.getTexture("background"));
                 backgroundTextureSize = assets.getTexture("background").getSize();
                 useBackgroundPlaceholder = false;
-                std::cout << "Successfully created background sprite" << std::endl;
+                std::cout << "Successfully created background sprite with dimensions: " 
+                         << backgroundTextureSize.x << "x" << backgroundTextureSize.y << std::endl;
             } else {
                 std::cerr << "Failed to load background from any path, using placeholder" << std::endl;
             }
@@ -1157,58 +1158,51 @@ void Game::nextLevel() {
     try {
         // Different backgrounds for each level
         std::string levelBackgroundPath;
+        std::vector<std::string> alternativePaths;
         
         switch (currentLevel % 3) {
             case 1: // Forest theme (levels 1, 4, 7...)
                 levelBackgroundPath = "assets/images/backgrounds/forest/forest_background.png";
                 platformColor = sf::Color(34, 139, 34); // Forest green
+                alternativePaths = {
+                    "assets/images/backgrounds/forest_background.png",
+                    "assets/images/backgrounds/background.png",
+                    "../assets/images/backgrounds/background.png"
+                };
                 break;
-            
+                
             case 2: // Desert theme (levels 2, 5, 8...)
                 levelBackgroundPath = "assets/images/backgrounds/desert/desert_background.png";
                 platformColor = sf::Color(210, 180, 140); // Desert sand color
+                alternativePaths = {
+                    "assets/images/backgrounds/desert_background.png",
+                    "assets/images/backgrounds/background.png",
+                    "../assets/images/backgrounds/background.png"
+                };
                 break;
-            
+                
             case 0: // Snow theme (levels 3, 6, 9...)
                 levelBackgroundPath = "assets/images/backgrounds/snow/snow_background.png";
                 platformColor = sf::Color(200, 220, 255); // Light blue for snow
+                alternativePaths = {
+                    "assets/images/backgrounds/snow_background.png",
+                    "assets/images/backgrounds/background.png",
+                    "../assets/images/backgrounds/background.png"
+                };
                 break;
         }
         
         // Try to load the level-specific background
+        bool loaded = false;
         try {
             assets.loadTexture("background", levelBackgroundPath);
             std::cout << "Successfully loaded background: " << levelBackgroundPath << std::endl;
+            loaded = true;
         } 
         catch (const std::exception& e) {
             std::cerr << "Failed to load primary background: " << e.what() << std::endl;
             
-            // Try alternative paths with different naming conventions
-            std::vector<std::string> alternativePaths;
-            
-            if (currentLevel % 3 == 1) { // Forest fallbacks
-                alternativePaths = {
-                    "assets/images/backgrounds/forest_background.png",
-                    "assets/images/backgrounds/background.png",
-                    "assets/images/backgrounds/snow_background.png" // Last resort
-                };
-            } 
-            else if (currentLevel % 3 == 2) { // Desert fallbacks
-                alternativePaths = {
-                    "assets/images/backgrounds/desert_background.png",
-                    "assets/images/backgrounds/background.png",
-                    "assets/images/backgrounds/snow_background.png" // Last resort
-                };
-            } 
-            else { // Snow fallbacks
-                alternativePaths = {
-                    "assets/images/backgrounds/snow_background.png",
-                    "assets/images/backgrounds/background.png"
-                };
-            }
-            
-            // Try each alternative path
-            bool loaded = false;
+            // Try alternative paths
             for (const auto& path : alternativePaths) {
                 try {
                     assets.loadTexture("background", path);
@@ -1219,95 +1213,97 @@ void Game::nextLevel() {
                     std::cerr << "Failed to load alternative background from " << path << ": " << innerE.what() << std::endl;
                 }
             }
-            
-            // If we still couldn't load anything, we'll use the placeholder
-            if (!loaded) {
-                useBackgroundPlaceholder = true;
-                
-                // Adjust placeholder color based on level theme
-                if (currentLevel % 3 == 1) { // Forest
-                    backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
-                } 
-                else if (currentLevel % 3 == 2) { // Desert
-                    backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
-                } 
-                else { // Snow
-                    backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
-                }
-                
-                return; // Skip the texture setup since we're using placeholder
-            }
         }
         
-        // Update the sprite with new texture
-          backgroundSprite = std::make_unique<sf::Sprite>(assets.getTexture("background"));
-          backgroundTextureSize = assets.getTexture("background").getSize();
-          useBackgroundPlaceholder = false;
-         
-         // Apply a slight tint to the background based on the level theme
-         // This helps create more visual distinction between levels
-         if (currentLevel % 3 == 1) { // Forest - slightly more green
-             backgroundSprite->setColor(sf::Color(230, 255, 230));
-         } 
-         else if (currentLevel % 3 == 2) { // Desert - warm/orange tint
-             backgroundSprite->setColor(sf::Color(255, 240, 220));
-         } 
-         else { // Snow - cool/blue tint
-             backgroundSprite->setColor(sf::Color(230, 240, 255));
-         }
-         
-      } catch (const std::exception& e) {
-          std::cerr << "Failed to load background for level " << currentLevel << ": " << e.what() << std::endl;
-          useBackgroundPlaceholder = true;
-         
-         // Adjust placeholder color based on level theme
-         if (currentLevel % 3 == 1) { // Forest
-             backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
-         } 
-         else if (currentLevel % 3 == 2) { // Desert
-             backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
-         } 
-         else { // Snow
-             backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
-         }
-      }
-      
-     // Reinitialize game elements with new variations based on level
-     initializePlatforms();
-     initializeLadders();
-     initializeEnemies();
-     initializeMiniMap();
-     initializeLights();
-     
-     // For higher levels, increase difficulty and add level-specific features
-     if (currentLevel > 1) {
-         // Add extra enemies based on level
-         for (int i = 0; i < currentLevel; i++) {
-             float x = 500.f + (i * 400.f);  // Space them out
-             float y = WINDOW_HEIGHT - 70.f; // On the ground
-             float patrolDistance = 160.f + (currentLevel * 20.f); // Longer patrol for higher levels
-             enemies.push_back(Enemy(x, y, patrolDistance));
-         }
-         
-         // Level-specific physics changes
-         switch (currentLevel % 3) {
-             case 1: // Forest level - normal physics
-                 physicsSystem.setGravity(980.f);
-                 physicsSystem.setJumpForce(400.f);
-                 break;
-             case 2: // Desert level - higher gravity, lower jumps
-                 physicsSystem.setGravity(1200.f);
-                 physicsSystem.setJumpForce(450.f);
-                 break;
-             case 0: // Snow level - lower gravity, higher jumps
-                 physicsSystem.setGravity(800.f);
-                 physicsSystem.setJumpForce(350.f);
-                 break;
-         }
-         
-         // Update minimap to include new enemies
-         initializeMiniMap();
-     }
+        // If we loaded a background texture, create the sprite
+        if (loaded) {
+            // Update the sprite with new texture
+            backgroundSprite = std::make_unique<sf::Sprite>(assets.getTexture("background"));
+            backgroundTextureSize = assets.getTexture("background").getSize();
+            useBackgroundPlaceholder = false;
+            
+            std::cout << "Successfully created background sprite with dimensions: " 
+                      << backgroundTextureSize.x << "x" << backgroundTextureSize.y << std::endl;
+            
+            // Apply a slight tint to the background based on the level theme
+            // This helps create more visual distinction between levels
+            if (currentLevel % 3 == 1) { // Forest - slightly more green
+                backgroundSprite->setColor(sf::Color(230, 255, 230));
+            } 
+            else if (currentLevel % 3 == 2) { // Desert - warm/orange tint
+                backgroundSprite->setColor(sf::Color(255, 240, 220));
+            } 
+            else { // Snow - cool/blue tint
+                backgroundSprite->setColor(sf::Color(230, 240, 255));
+            }
+        }
+        // If we couldn't load a background texture, use the placeholder
+        else {
+            useBackgroundPlaceholder = true;
+            
+            // Adjust placeholder color based on level theme
+            if (currentLevel % 3 == 1) { // Forest
+                backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
+            } 
+            else if (currentLevel % 3 == 2) { // Desert
+                backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
+            } 
+            else { // Snow
+                backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to load background for level " << currentLevel << ": " << e.what() << std::endl;
+        useBackgroundPlaceholder = true;
+        
+        // Adjust placeholder color based on level theme
+        if (currentLevel % 3 == 1) { // Forest
+            backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
+        } 
+        else if (currentLevel % 3 == 2) { // Desert
+            backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
+        } 
+        else { // Snow
+            backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
+        }
+    }
+    
+    // Reinitialize game elements with new variations based on level
+    initializePlatforms();
+    initializeLadders();
+    initializeEnemies();
+    initializeMiniMap();
+    initializeLights();
+    
+    // For higher levels, increase difficulty and add level-specific features
+    if (currentLevel > 1) {
+        // Add extra enemies based on level
+        for (int i = 0; i < currentLevel; i++) {
+            float x = 500.f + (i * 400.f);  // Space them out
+            float y = WINDOW_HEIGHT - 70.f; // On the ground
+            float patrolDistance = 160.f + (currentLevel * 20.f); // Longer patrol for higher levels
+            enemies.push_back(Enemy(x, y, patrolDistance));
+        }
+        
+        // Level-specific physics changes
+        switch (currentLevel % 3) {
+            case 1: // Forest level - normal physics
+                physicsSystem.setGravity(980.f);
+                physicsSystem.setJumpForce(400.f);
+                break;
+            case 2: // Desert level - higher gravity, lower jumps
+                physicsSystem.setGravity(1200.f);
+                physicsSystem.setJumpForce(450.f);
+                break;
+            case 0: // Snow level - lower gravity, higher jumps
+                physicsSystem.setGravity(800.f);
+                physicsSystem.setJumpForce(350.f);
+                break;
+        }
+        
+        // Update minimap to include new enemies
+        initializeMiniMap();
+    }
 }
 
 void Game::updateImGui() {

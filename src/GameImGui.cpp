@@ -149,6 +149,15 @@ void Game::draw() {
         // Scale the background sprite to fill the screen height
         float scaleY = viewSize.y / backgroundTextureSize.y;
         float scaleX = 1.0f; // Keep original width for tiling
+        
+        // Ensure we have valid texture dimensions to avoid division by zero
+        if (backgroundTextureSize.x == 0 || backgroundTextureSize.y == 0) {
+            std::cerr << "Warning: Background texture has invalid size: " 
+                      << backgroundTextureSize.x << "x" << backgroundTextureSize.y << std::endl;
+            window.draw(backgroundPlaceholder);
+            return;
+        }
+        
         backgroundSprite->setScale(sf::Vector2f(scaleX, scaleY));
         
         // Draw enough tiles to cover the visible area plus a bit extra
