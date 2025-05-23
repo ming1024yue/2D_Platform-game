@@ -47,6 +47,7 @@ private:
     void initializeMiniMap();
     void updateMiniMap();
     void updateLights();
+    void syncPlatformsWithPhysics();
     void checkPlayerEnemyCollision();
     void updateUI();
     void checkGameOver();

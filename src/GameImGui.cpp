@@ -169,10 +169,7 @@ void Game::draw() {
     
     // Draw platforms
     for (const auto& platform : platforms) {
-        // Apply platform color from settings
-        sf::RectangleShape coloredPlatform = platform;
-        coloredPlatform.setFillColor(platformColor);
-        window.draw(coloredPlatform);
+        window.draw(platform);
     }
     
     // Draw ladders

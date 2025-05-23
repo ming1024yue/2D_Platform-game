@@ -467,6 +467,15 @@ void Game::initializePlatforms() {
         snowLevelPlatforms();
     }
     
+    // Ensure platforms have the correct color applied before physics initialization
+    for (auto& platform : platforms) {
+        platform.setFillColor(platformColor);
+    }
+    
+    // Reinitialize physics system with the new platforms
+    physicsSystem.initialize();
+    physicsSystem.initializePlatforms(platforms);
+    
     // Debug ground platform info
     auto& ground = platforms[0]; // First platform is ground
     std::cout << "Ground platform position: " << ground.getPosition().x << ", " << ground.getPosition().y 
@@ -1301,6 +1310,9 @@ void Game::nextLevel() {
                 break;
         }
         
+        // Ensure physics components for enemies are reinitialized
+        physicsSystem.initializeEnemies(enemies);
+        
         // Update minimap to include new enemies
         initializeMiniMap();
     }
@@ -1904,3 +1916,21 @@ void Game::scanAssetDirectory(const std::string& directory) {
         std::cerr << "Error scanning assets directory: " << e.what() << std::endl;
     }
 } 
+// Method to synchronize platforms with their physics components
+void Game::syncPlatformsWithPhysics() {
+    // Make sure we have physics components for each platform
+    if (platforms.size() != physicsSystem.getPlatformPhysicsCount()) {
+        std::cout << "Warning: Platform count mismatch. Platforms: " << platforms.size() 
+                  << ", Physics components: " << physicsSystem.getPlatformPhysicsCount() << std::endl;
+        return;
+    }
+    
+    // For each platform, update its position and size to match the collision box
+    for (size_t i = 0; i < platforms.size(); ++i) {
+        const auto& physicsBox = physicsSystem.getPlatformPhysicsComponent(i).collisionBox;
+        platforms[i].setPosition(physicsBox.position);
+        platforms[i].setSize(physicsBox.size);
+    }
+    
+    std::cout << "Synchronized " << platforms.size() << " platforms with physics components" << std::endl;
+}
