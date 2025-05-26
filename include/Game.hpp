@@ -9,6 +9,7 @@
 #include "LightingSystem.hpp"
 #include "AssetManager.hpp"
 #include "Physics.hpp"
+#include "TileRenderer.hpp"
 #include "imgui.h"
 #include "imgui-SFML.h"
 
@@ -143,6 +144,9 @@ private:
     
     // Physics system
     PhysicsSystem physicsSystem;
+    
+    // Tile rendering system
+    TileRenderer tileRenderer;
     
     // Mini-map elements
     sf::RectangleShape miniMapBorder;

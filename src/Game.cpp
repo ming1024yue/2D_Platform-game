@@ -310,6 +310,33 @@ void Game::loadAssets() {
             // Game can continue without sounds
         }
         
+        // Load platform tiles
+        try {
+            std::vector<std::string> tilePaths = {
+                "assets/images/platformer/tiles",
+                "./assets/images/platformer/tiles",
+                "../assets/images/platformer/tiles"
+            };
+            
+            bool tilesLoaded = false;
+            for (const auto& path : tilePaths) {
+                if (tileRenderer.loadTiles(path)) {
+                    logInfo("Successfully loaded platform tiles from: " + path);
+                    tilesLoaded = true;
+                    break;
+                } else {
+                    logWarning("Failed to load tiles from: " + path);
+                }
+            }
+            
+            if (!tilesLoaded) {
+                logWarning("No platform tiles loaded - platforms will use solid colors");
+            }
+        } catch (const std::exception& e) {
+            logWarning("Failed to load platform tiles: " + std::string(e.what()));
+            // Game can continue without tiles
+        }
+        
     } catch (const std::exception& e) {
         logError("Asset loading error: " + std::string(e.what()));
         logWarning("Game will continue without some assets.");
@@ -1609,6 +1636,41 @@ void Game::updateImGui() {
                     ImGui::Text("Background: %s", useBackgroundPlaceholder ? "Using placeholder" : "Loaded");
                     ImGui::Text("Player: %s", usePlayerPlaceholder ? "Using placeholder" : "Loaded");
                     ImGui::Text("Enemy: %s", useEnemyPlaceholder ? "Using placeholder" : "Loaded");
+                    
+                    ImGui::Separator();
+                    
+                    // Platform tiles section
+                    ImGui::Text("Platform Tiles");
+                    ImGui::Text("Status: %s", tileRenderer.isLoaded() ? "Loaded" : "Not loaded");
+                    if (tileRenderer.isLoaded()) {
+                        ImGui::Text("Tile count: %d", tileRenderer.getTileCount());
+                        
+                        // Tile renderer settings
+                        int tileSize = tileRenderer.getTileSize();
+                        if (ImGui::SliderInt("Tile Size", &tileSize, 16, 128)) {
+                            tileRenderer.setTileSize(tileSize);
+                        }
+                        
+                        bool randomize = tileRenderer.isRandomizationEnabled();
+                        if (ImGui::Checkbox("Randomize Tiles", &randomize)) {
+                            tileRenderer.setRandomizationEnabled(randomize);
+                        }
+                        
+                        if (ImGui::Button("Reload Tiles")) {
+                            std::vector<std::string> tilePaths = {
+                                "assets/images/platformer/tiles",
+                                "./assets/images/platformer/tiles",
+                                "../assets/images/platformer/tiles"
+                            };
+                            
+                            for (const auto& path : tilePaths) {
+                                if (tileRenderer.loadTiles(path)) {
+                                    logInfo("Reloaded platform tiles from: " + path);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     
                     ImGui::Separator();
                     

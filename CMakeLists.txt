@@ -35,6 +35,7 @@ set(GAME_SOURCES
     src/AssetManager.cpp
     src/Physics.cpp
     src/RenderingSystem.cpp
+    src/TileRenderer.cpp
 )
 
 # Add executable

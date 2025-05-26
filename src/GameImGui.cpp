@@ -144,20 +144,26 @@ void Game::draw() {
     // Draw debug grid for canonical coordinates
     drawDebugGrid();
     
-    // Draw platforms
-    for (const auto& platform : platforms) {
-        // If we have background layers loaded, make platforms semi-transparent
-        // so the ground layer texture shows through
-        if (!useBackgroundPlaceholder) {
-            // Create a copy of the platform with reduced opacity
-            sf::RectangleShape transparentPlatform = platform;
-            sf::Color platformColor = transparentPlatform.getFillColor();
-            platformColor.a = 100; // Make it semi-transparent (was 255, now 100)
-            transparentPlatform.setFillColor(platformColor);
-            window.draw(transparentPlatform);
-        } else {
-            // Use normal opaque platforms when using placeholder background
-            window.draw(platform);
+    // Draw platforms using tile renderer
+    if (tileRenderer.isLoaded()) {
+        // Use tile renderer for textured platforms
+        tileRenderer.renderPlatforms(window, platforms, true);
+    } else {
+        // Fallback to original platform rendering if tiles not loaded
+        for (const auto& platform : platforms) {
+            // If we have background layers loaded, make platforms semi-transparent
+            // so the ground layer texture shows through
+            if (!useBackgroundPlaceholder) {
+                // Create a copy of the platform with reduced opacity
+                sf::RectangleShape transparentPlatform = platform;
+                sf::Color platformColor = transparentPlatform.getFillColor();
+                platformColor.a = 100; // Make it semi-transparent (was 255, now 100)
+                transparentPlatform.setFillColor(platformColor);
+                window.draw(transparentPlatform);
+            } else {
+                // Use normal opaque platforms when using placeholder background
+                window.draw(platform);
+            }
         }
     }
     
