@@ -4,6 +4,8 @@
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
+#include <chrono>
+#include <ctime>
 
 namespace fs = std::filesystem;
 
@@ -54,6 +56,12 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                useImGuiInterface(true),
                showAssetManager(false),
                previewAvailable(false) {
+    
+    // Initialize logging system
+    gameLogFile.open(gameLogFileName, std::ios::out | std::ios::app);
+    if (gameLogFile.is_open()) {
+        logInfo("Game initialized - starting new session");
+    }
     
     // Initialize sprite pointers with shared empty texture (created in loadAssets)
     // This is required because sf::Sprite has no default constructor in SFML 3.x
@@ -215,7 +223,7 @@ void Game::loadAssets() {
             initializeBackgroundLayers();
             loadBackgroundLayers();
         } catch (const std::exception& e) {
-            std::cerr << "Failed to load layered backgrounds: " << e.what() << std::endl;
+            logError("Failed to load layered backgrounds: " + std::string(e.what()));
             // We'll use the background placeholder instead
         }
         
@@ -233,10 +241,10 @@ void Game::loadAssets() {
                 try {
                     assets.loadTexture("player", path);
                     playerLoaded = true;
-                    std::cout << "Successfully loaded player sprite from: " << path << std::endl;
+                    logInfo("Successfully loaded player sprite from: " + path);
                     break;
                 } catch (const std::exception& e) {
-                    std::cerr << "Failed to load player sprite from " << path << ": " << e.what() << std::endl;
+                    logWarning("Failed to load player sprite from " + path + ": " + std::string(e.what()));
                 }
             }
             
@@ -244,11 +252,11 @@ void Game::loadAssets() {
                 playerSprite = std::make_unique<sf::Sprite>(assets.getTexture("player"));
                 usePlayerPlaceholder = false;
             } else {
-                std::cerr << "Failed to load player sprite from any path" << std::endl;
+                logError("Failed to load player sprite from any path");
                 // We'll use the player placeholder instead
             }
         } catch (const std::exception& e) {
-            std::cerr << "Failed to load player sprite: " << e.what() << std::endl;
+            logError("Failed to load player sprite: " + std::string(e.what()));
             // We'll use the player placeholder instead
         }
         
@@ -266,10 +274,10 @@ void Game::loadAssets() {
                 try {
                     assets.loadTexture("enemy", path);
                     enemyLoaded = true;
-                    std::cout << "Successfully loaded enemy sprite from: " << path << std::endl;
+                    logInfo("Successfully loaded enemy sprite from: " + path);
                     break;
                 } catch (const std::exception& e) {
-                    std::cerr << "Failed to load enemy sprite from " << path << ": " << e.what() << std::endl;
+                    logWarning("Failed to load enemy sprite from " + path + ": " + std::string(e.what()));
                 }
             }
             
@@ -277,11 +285,11 @@ void Game::loadAssets() {
                 enemySprite = std::make_unique<sf::Sprite>(assets.getTexture("enemy"));
                 useEnemyPlaceholder = false;
             } else {
-                std::cerr << "Failed to load enemy sprite from any path" << std::endl;
+                logError("Failed to load enemy sprite from any path");
                 // We'll use the enemy placeholder instead
             }
         } catch (const std::exception& e) {
-            std::cerr << "Failed to load enemy sprite: " << e.what() << std::endl;
+            logError("Failed to load enemy sprite: " + std::string(e.what()));
             // We'll use the enemy placeholder instead
         }
         
@@ -289,7 +297,7 @@ void Game::loadAssets() {
         try {
             assets.loadFont("pixel_font", "assets/fonts/pixel.ttf");
         } catch (const std::exception& e) {
-            std::cerr << "Failed to load font: " << e.what() << std::endl;
+            logWarning("Failed to load font: " + std::string(e.what()));
             // Font errors are handled in initializeUI with fallbacks
         }
         
@@ -298,13 +306,13 @@ void Game::loadAssets() {
             assets.loadSoundBuffer("jump", "assets/audio/sfx/jump.wav");
             assets.loadSoundBuffer("hit", "assets/audio/sfx/hit.wav");
         } catch (const std::exception& e) {
-            std::cerr << "Failed to load sound: " << e.what() << std::endl;
+            logWarning("Failed to load sound: " + std::string(e.what()));
             // Game can continue without sounds
         }
         
     } catch (const std::exception& e) {
-        std::cerr << "Asset loading error: " << e.what() << std::endl;
-        std::cerr << "Game will continue without some assets." << std::endl;
+        logError("Asset loading error: " + std::string(e.what()));
+        logWarning("Game will continue without some assets.");
     }
 }
 
@@ -460,10 +468,7 @@ void Game::initializePlatforms() {
     physicsSystem.initialize();
     physicsSystem.initializePlatforms(platforms);
     
-    // Debug ground platform info
-    auto& ground = platforms[0]; // First platform is ground
-    std::cout << "Ground platform position: " << ground.getPosition().x << ", " << ground.getPosition().y 
-              << " size: " << ground.getSize().x << ", " << ground.getSize().y << std::endl;
+
 }
 
 void Game::forestLevelPlatforms() {
@@ -765,7 +770,7 @@ void Game::initializeEnemies() {
     }
     
     // Debug info
-    std::cout << "Total enemies created: " << enemies.size() << std::endl;
+    logDebug("Total enemies created: " + std::to_string(enemies.size()));
 }
 
 void Game::initializeForestEnemies() {
@@ -1189,21 +1194,21 @@ void Game::nextLevel() {
         bool loaded = false;
         try {
             assets.loadTexture("background", levelBackgroundPath);
-            std::cout << "Successfully loaded background: " << levelBackgroundPath << std::endl;
+            logInfo("Successfully loaded background: " + levelBackgroundPath);
             loaded = true;
         } 
         catch (const std::exception& e) {
-            std::cerr << "Failed to load primary background: " << e.what() << std::endl;
+            logError("Failed to load primary background: " + std::string(e.what()));
             
             // Try alternative paths
             for (const auto& path : alternativePaths) {
                 try {
                     assets.loadTexture("background", path);
-                    std::cout << "Successfully loaded alternative background: " << path << std::endl;
+                    logInfo("Successfully loaded alternative background: " + path);
                     loaded = true;
                     break;
                 } catch (const std::exception& innerE) {
-                    std::cerr << "Failed to load alternative background from " << path << ": " << innerE.what() << std::endl;
+                    logWarning("Failed to load alternative background from " + path + ": " + std::string(innerE.what()));
                 }
             }
         }
@@ -1213,7 +1218,7 @@ void Game::nextLevel() {
             // The old single background texture is still loaded as a fallback for the ground layer
             // Now reload all background layers for this level
             loadBackgroundLayers();
-            std::cout << "Reloaded layered backgrounds for level " << currentLevel << std::endl;
+            logInfo("Reloaded layered backgrounds for level " + std::to_string(currentLevel));
         }
         // If we couldn't load a background texture, use the placeholder
         else {
@@ -1231,7 +1236,7 @@ void Game::nextLevel() {
             }
         }
     } catch (const std::exception& e) {
-        std::cerr << "Failed to load background for level " << currentLevel << ": " << e.what() << std::endl;
+        logError("Failed to load background for level " + std::to_string(currentLevel) + ": " + std::string(e.what()));
         useBackgroundPlaceholder = true;
         
         // Adjust placeholder color based on level theme
@@ -1641,9 +1646,9 @@ void Game::updateImGui() {
             ImGui::ShowDemoWindow(&showImGuiDemo);
         }
     } catch (const std::exception& e) {
-        std::cerr << "Exception in updateImGui: " << e.what() << std::endl;
+        logError("Exception in updateImGui: " + std::string(e.what()));
     } catch (...) {
-        std::cerr << "Unknown exception in updateImGui" << std::endl;
+        logError("Unknown exception in updateImGui");
     }
 }
 
@@ -1975,7 +1980,7 @@ void Game::showAssetManagerWindow() {
 // Scan asset directory recursively to find image files
 void Game::scanAssetDirectory(const std::string& directory) {
     try {
-        std::cout << "Scanning directory: " << directory << std::endl;
+        logDebug("Scanning directory: " + directory);
         imageAssets.clear();
         
         // Check if the directory exists
@@ -1992,9 +1997,9 @@ void Game::scanAssetDirectory(const std::string& directory) {
             
             bool foundPath = false;
             for (const auto& path : pathsToTry) {
-                std::cout << "Trying alternative path: " << path << std::endl;
+                logDebug("Trying alternative path: " + path);
                 if (fs::exists(path)) {
-                    std::cout << "Found valid path: " << path << std::endl;
+                    logDebug("Found valid path: " + path);
                     scanAssetDirectory(path);
                     foundPath = true;
                     break;
@@ -2008,7 +2013,7 @@ void Game::scanAssetDirectory(const std::string& directory) {
         }
         
         // List all entries in the directory first (non-recursive)
-        std::cout << "Listing top-level entries in " << directory << ":" << std::endl;
+        logDebug("Listing top-level entries in " + directory + ":");
         
         // Track directories for subdirectory display
         std::vector<std::string> subdirectories;
@@ -2018,7 +2023,7 @@ void Game::scanAssetDirectory(const std::string& directory) {
             std::string path = entry.path().string();
             std::string name = entry.path().filename().string();
             
-            std::cout << "Found: " << path << std::endl;
+            logDebug("Found: " + path);
             
             if (entry.is_directory()) {
                 // Add to subdirectories list
@@ -2067,7 +2072,7 @@ void Game::scanAssetDirectory(const std::string& directory) {
         // Now recursively scan image subdirectories
         for (const auto& subdir : subdirectories) {
             if (subdir.find("images") != std::string::npos) {
-                std::cout << "Scanning image subdirectory: " << subdir << std::endl;
+                logDebug("Scanning image subdirectory: " + subdir);
                 
                 for (const auto& entry : fs::recursive_directory_iterator(subdir)) {
                     if (entry.is_regular_file()) {
@@ -2120,7 +2125,7 @@ void Game::scanAssetDirectory(const std::string& directory) {
                      return a.name < b.name;
                  });
         
-        std::cout << "Asset scan complete. Found " << imageAssets.size() << " items." << std::endl;
+        logDebug("Asset scan complete. Found " + std::to_string(imageAssets.size()) + " items.");
                  
     } catch (const std::exception& e) {
         std::cerr << "Error scanning assets directory: " << e.what() << std::endl;
@@ -2130,8 +2135,8 @@ void Game::scanAssetDirectory(const std::string& directory) {
 void Game::syncPlatformsWithPhysics() {
     // Make sure we have physics components for each platform
     if (platforms.size() != physicsSystem.getPlatformPhysicsCount()) {
-        std::cout << "Warning: Platform count mismatch. Platforms: " << platforms.size() 
-                  << ", Physics components: " << physicsSystem.getPlatformPhysicsCount() << std::endl;
+        logWarning("Platform count mismatch. Platforms: " + std::to_string(platforms.size()) + 
+                  ", Physics components: " + std::to_string(physicsSystem.getPlatformPhysicsCount()));
         return;
     }
     
@@ -2142,7 +2147,7 @@ void Game::syncPlatformsWithPhysics() {
         platforms[i].setSize(physicsBox.size);
     }
     
-    std::cout << "Synchronized " << platforms.size() << " platforms with physics components" << std::endl;
+    logDebug("Synchronized " + std::to_string(platforms.size()) + " platforms with physics components");
 }
 
 void Game::jumpToLevel(int level) {
@@ -2216,21 +2221,21 @@ void Game::jumpToLevel(int level) {
         bool loaded = false;
         try {
             assets.loadTexture("background", levelBackgroundPath);
-            std::cout << "Successfully loaded background: " << levelBackgroundPath << std::endl;
+            logInfo("Successfully loaded background: " + levelBackgroundPath);
             loaded = true;
         } 
         catch (const std::exception& e) {
-            std::cerr << "Failed to load primary background: " << e.what() << std::endl;
+            logError("Failed to load primary background: " + std::string(e.what()));
             
             // Try alternative paths
             for (const auto& path : alternativePaths) {
                 try {
                     assets.loadTexture("background", path);
-                    std::cout << "Successfully loaded alternative background: " << path << std::endl;
+                    logInfo("Successfully loaded alternative background: " + path);
                     loaded = true;
                     break;
                 } catch (const std::exception& innerE) {
-                    std::cerr << "Failed to load alternative background from " << path << ": " << innerE.what() << std::endl;
+                    logWarning("Failed to load alternative background from " + path + ": " + std::string(innerE.what()));
                 }
             }
         }
@@ -2240,7 +2245,7 @@ void Game::jumpToLevel(int level) {
             // The old single background texture is still loaded as a fallback for the ground layer
             // Now reload all background layers for this level
             loadBackgroundLayers();
-            std::cout << "Reloaded layered backgrounds for level " << currentLevel << std::endl;
+            logInfo("Reloaded layered backgrounds for level " + std::to_string(currentLevel));
         }
         // If we couldn't load a background texture, use the placeholder
         else {
@@ -2258,7 +2263,7 @@ void Game::jumpToLevel(int level) {
             }
         }
     } catch (const std::exception& e) {
-        std::cerr << "Failed to load background for level " << currentLevel << ": " << e.what() << std::endl;
+        logError("Failed to load background for level " + std::to_string(currentLevel) + ": " + std::string(e.what()));
         useBackgroundPlaceholder = true;
         
         // Adjust placeholder color based on level theme
@@ -2314,7 +2319,7 @@ void Game::jumpToLevel(int level) {
     physicsSystem.initializePlatforms(platforms);
     physicsSystem.initializeEnemies(enemies);
     
-    std::cout << "Jumped to level " << currentLevel << " for testing" << std::endl;
+    logInfo("Jumped to level " + std::to_string(currentLevel) + " for testing");
 }
 
 // Initialize background layers with default configuration
@@ -2338,7 +2343,7 @@ void Game::initializeBackgroundLayers() {
     // Ground layer - moves with camera (closest to viewer, on top of all other layers)
     backgroundLayers.emplace_back("ground", 0.0f, true, false);
     
-    std::cout << "Initialized " << backgroundLayers.size() << " background layers" << std::endl;
+    logInfo("Initialized " + std::to_string(backgroundLayers.size()) + " background layers");
 }
 
 // Load background layer textures
@@ -2398,8 +2403,8 @@ void Game::loadBackgroundLayers() {
                 layer.isLoaded = true;
                 layerLoaded = true;
                 loadedLayers++;
-                std::cout << "Successfully loaded " << layer.name << " layer from: " << path << std::endl;
-                std::cout << "  Texture size: " << layer.textureSize.x << "x" << layer.textureSize.y << std::endl;
+                logInfo("Successfully loaded " + layer.name + " layer from: " + path);
+                logInfo("  Texture size: " + std::to_string(layer.textureSize.x) + "x" + std::to_string(layer.textureSize.y));
                 break;
             } catch (const std::exception& e) {
                 // Continue to next path
@@ -2407,16 +2412,16 @@ void Game::loadBackgroundLayers() {
         }
         
         if (!layerLoaded) {
-            std::cout << "Could not load " << layer.name << " layer, will skip in rendering" << std::endl;
+            logWarning("Could not load " + layer.name + " layer, will skip in rendering");
         }
     }
     
     // If at least one layer loaded, don't use placeholder
     if (loadedLayers > 0) {
         useBackgroundPlaceholder = false;
-        std::cout << "Successfully loaded " << loadedLayers << " background layers" << std::endl;
+        logInfo("Successfully loaded " + std::to_string(loadedLayers) + " background layers");
     } else {
-        std::cout << "No background layers loaded, using placeholder" << std::endl;
+        logWarning("No background layers loaded, using placeholder");
     }
 }
 
@@ -2512,4 +2517,55 @@ void Game::drawBackgroundLayers() {
             window.draw(*layer.sprite);
         }
     }
+}
+
+// Logging methods implementation
+void Game::logDebug(const std::string& message) {
+    if (loggingEnabled && gameLogFile.is_open()) {
+        gameLogFile << "[" << getCurrentTimestamp() << "] [DEBUG] " << message << std::endl;
+        gameLogFile.flush();
+    }
+}
+
+void Game::logInfo(const std::string& message) {
+    if (loggingEnabled && gameLogFile.is_open()) {
+        gameLogFile << "[" << getCurrentTimestamp() << "] [INFO] " << message << std::endl;
+        gameLogFile.flush();
+    }
+}
+
+void Game::logWarning(const std::string& message) {
+    if (loggingEnabled && gameLogFile.is_open()) {
+        gameLogFile << "[" << getCurrentTimestamp() << "] [WARNING] " << message << std::endl;
+        gameLogFile.flush();
+    }
+}
+
+void Game::logError(const std::string& message) {
+    if (loggingEnabled && gameLogFile.is_open()) {
+        gameLogFile << "[" << getCurrentTimestamp() << "] [ERROR] " << message << std::endl;
+        gameLogFile.flush();
+    }
+}
+
+void Game::clearGameLogFile() {
+    if (gameLogFile.is_open()) {
+        gameLogFile.close();
+    }
+    gameLogFile.open(gameLogFileName, std::ios::out | std::ios::trunc);
+    if (gameLogFile.is_open()) {
+        logInfo("Game log file cleared");
+    }
+}
+
+std::string Game::getCurrentTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()) % 1000;
+    
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
+    ss << '.' << std::setfill('0') << std::setw(3) << ms.count();
+    return ss.str();
 }

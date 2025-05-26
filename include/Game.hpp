@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <filesystem>
+#include <fstream>
 #include "Player.hpp"
 #include "Enemy.hpp"
 #include "LightingSystem.hpp"
@@ -106,6 +107,16 @@ private:
     
     // Helper to create a heart shape
     sf::RectangleShape createHeartIcon(float x, float y, bool filled);
+    
+    // Logging methods
+    void logDebug(const std::string& message);
+    void logInfo(const std::string& message);
+    void logWarning(const std::string& message);
+    void logError(const std::string& message);
+    void setLoggingEnabled(bool enabled) { loggingEnabled = enabled; }
+    bool isLoggingEnabled() const { return loggingEnabled; }
+    void clearGameLogFile();
+    std::string getCurrentTimestamp();
 
     sf::RenderWindow window;
     sf::View gameView;
@@ -224,4 +235,9 @@ private:
     sf::Vector2f playerPosition;
     float playerSpeed;
     bool isRunning;
+    
+    // Logging system
+    std::ofstream gameLogFile;
+    bool loggingEnabled = true;
+    std::string gameLogFileName = "game_debug.log";
 }; 

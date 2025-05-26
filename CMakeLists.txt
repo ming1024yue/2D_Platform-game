@@ -34,6 +34,7 @@ set(GAME_SOURCES
     src/LightingSystem.cpp
     src/AssetManager.cpp
     src/Physics.cpp
+    src/RenderingSystem.cpp
 )
 
 # Add executable

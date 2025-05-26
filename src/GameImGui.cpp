@@ -11,12 +11,12 @@ void Game::initializeImGui() {
         bool initSuccess = ImGui::SFML::Init(window);
         
         if (!initSuccess) {
-            std::cerr << "Failed to initialize ImGui::SFML" << std::endl;
+            logError("Failed to initialize ImGui::SFML");
             useImGuiInterface = false;
             return;
         }
         
-        std::cout << "ImGui::SFML initialized successfully" << std::endl;
+        logInfo("ImGui::SFML initialized successfully");
         
         // Set ImGui style
         ImGui::StyleColorsDark();
@@ -34,10 +34,10 @@ void Game::initializeImGui() {
         style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.3f, 0.6f, 0.3f, 0.8f);
         style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.2f, 0.7f, 0.2f, 1.0f);
     } catch (const std::exception& e) {
-        std::cerr << "Exception in initializeImGui: " << e.what() << std::endl;
+        logError("Exception in initializeImGui: " + std::string(e.what()));
         useImGuiInterface = false;
     } catch (...) {
-        std::cerr << "Unknown exception in initializeImGui" << std::endl;
+        logError("Unknown exception in initializeImGui");
         useImGuiInterface = false;
     }
 }
@@ -51,22 +51,22 @@ void Game::renderImGui() {
         // Just don't display windows when interface is disabled
         ImGui::SFML::Render(window);
     } catch (const std::exception& e) {
-        std::cerr << "Exception in renderImGui: " << e.what() << std::endl;
+        logError("Exception in renderImGui: " + std::string(e.what()));
     } catch (...) {
-        std::cerr << "Unknown exception in renderImGui" << std::endl;
+        logError("Unknown exception in renderImGui");
     }
 }
 
 // Shutdown ImGui when the game is closed
 void Game::shutdownImGui() {
     try {
-        std::cout << "Shutting down ImGui::SFML..." << std::endl;
+        logInfo("Shutting down ImGui::SFML...");
         ImGui::SFML::Shutdown();
-        std::cout << "ImGui::SFML shutdown completed" << std::endl;
+        logInfo("ImGui::SFML shutdown completed");
     } catch (const std::exception& e) {
-        std::cerr << "Exception in shutdownImGui: " << e.what() << std::endl;
+        logError("Exception in shutdownImGui: " + std::string(e.what()));
     } catch (...) {
-        std::cerr << "Unknown exception in shutdownImGui" << std::endl;
+        logError("Unknown exception in shutdownImGui");
     }
 }
 
@@ -102,14 +102,14 @@ void Game::handleEvents() {
             // Toggle debug grid with G key
             if (key->code == sf::Keyboard::Key::G) {
                 showDebugGrid = !showDebugGrid;
-                std::cout << "Debug grid " << (showDebugGrid ? "enabled" : "disabled") << std::endl;
+                logDebug("Debug grid " + std::string(showDebugGrid ? "enabled" : "disabled"));
             }
             
             // Toggle ImGui interface with F1 key - with safety checks
             if (key->code == sf::Keyboard::Key::F1) {
-                // Print debug info
-                std::cout << "F1 pressed: Toggling ImGui from " << (useImGuiInterface ? "ON" : "OFF") 
-                          << " to " << (!useImGuiInterface ? "ON" : "OFF") << std::endl;
+                // Log debug info
+                logDebug("F1 pressed: Toggling ImGui from " + std::string(useImGuiInterface ? "ON" : "OFF") + 
+                         " to " + std::string(!useImGuiInterface ? "ON" : "OFF"));
                 
                 // Set the interface state
                 useImGuiInterface = !useImGuiInterface;
@@ -482,6 +482,12 @@ void Game::draw() {
 
 // Game destructor implementation
 Game::~Game() {
+    // Log shutdown and close log file
+    if (gameLogFile.is_open()) {
+        logInfo("Game shutting down - session ended");
+        gameLogFile.close();
+    }
+    
     // Shutdown ImGui when the game is destroyed
     shutdownImGui();
 } 
