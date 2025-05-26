@@ -41,3 +41,4 @@ Makefile
 # If you have SFML in your project directory and don't want to track it
 # Uncomment the following line
 # extlibs/sfml/ 
+*.ini
