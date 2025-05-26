@@ -29,6 +29,22 @@ struct ImageAssetInfo {
     sf::Time loadTime;
 };
 
+// Background layer structure for parallax backgrounds
+struct BackgroundLayer {
+    std::unique_ptr<sf::Sprite> sprite;
+    sf::Vector2u textureSize;
+    float parallaxSpeed;    // 0.0 = static, 1.0 = moves with camera
+    std::string name;       // Layer name (e.g., "sky", "clouds", "mountains", "ground")
+    bool isLoaded;
+    bool tileHorizontally;  // Whether to tile this layer horizontally
+    bool tileVertically;    // Whether to tile this layer vertically
+    
+    BackgroundLayer(const std::string& layerName, float speed = 1.0f, 
+                   bool tileH = true, bool tileV = false) 
+        : parallaxSpeed(speed), name(layerName), isLoaded(false),
+          tileHorizontally(tileH), tileVertically(tileV) {}
+};
+
 class Game {
 public:
     Game();
@@ -58,6 +74,11 @@ private:
     void loadAssets();
     void drawDebugBoxes();
     void drawDebugGrid();  // New method for drawing the canonical coordinate grid
+    
+    // Background layer methods
+    void initializeBackgroundLayers();
+    void loadBackgroundLayers();
+    void drawBackgroundLayers();
     
     // Level-specific layouts
     void forestLevelPlatforms();
@@ -175,6 +196,7 @@ private:
     static constexpr int FPS = 60;
     static constexpr float HIT_COOLDOWN = 1.5f; // 1.5 seconds invulnerability
     static constexpr float LEVEL_TRANSITION_DURATION = 2.0f; // Duration of level transition in seconds
+    static constexpr float GROUND_HEIGHT = 60.f; // Height of the ground platform from bottom of screen
     
     // Mini-map constants
     static constexpr int MINI_MAP_WIDTH = 200;
@@ -183,12 +205,11 @@ private:
 
     AssetManager assets;
     // Use pointers for sprites to avoid constructor issues
-    std::unique_ptr<sf::Sprite> backgroundSprite;
     std::unique_ptr<sf::Sprite> playerSprite;
     std::unique_ptr<sf::Sprite> enemySprite;
     
-    // Store background texture size for tiling
-    sf::Vector2u backgroundTextureSize;
+    // Layered background system
+    std::vector<BackgroundLayer> backgroundLayers;
     
     // Placeholder shapes to draw when textures are missing
     sf::RectangleShape backgroundPlaceholder;

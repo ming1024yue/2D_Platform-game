@@ -29,8 +29,7 @@ Player::Player(float x, float y, PhysicsSystem& physics) : physicsSystem(physics
     maxHealth = 3; // 3 lives
     health = maxHealth;
     
-    // Debug output for initial position
-    std::cout << "Player initialized at: " << x << ", " << y << std::endl;
+
 }
 
 void Player::setPosition(const sf::Vector2f& pos) {
@@ -70,9 +69,7 @@ void Player::handleInput() {
 
     // Debug space key press
     bool spacePressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
-    if (spacePressed) {
-        std::cout << "Space key pressed! onGround=" << (onGround ? "true" : "false") << std::endl;
-    }
+
 
     // Handle climbing or jumping
     if (onLadder) {
@@ -132,10 +129,7 @@ void Player::update(float deltaTime,const std::vector<sf::RectangleShape>& platf
     // Store previous position for collision resolution
     sf::Vector2f prevPosition = position;
     
-    // Debug current state
-    std::cout << "Player update: pos=" << prevPosition.x << "," << prevPosition.y 
-              << " vel=" << velocity.x << "," << velocity.y 
-              << " onGround=" << (onGround ? "true" : "false") << std::endl;
+
     
     // Check ladder interaction
     bool wasOnLadder = onLadder;
@@ -244,11 +238,7 @@ void Player::update(float deltaTime,const std::vector<sf::RectangleShape>& platf
     if (onGround) {
         velocity.y = 0;
     }
-    
-    // Debug final state
-    std::cout << "Player final: pos=" << position.x << "," << position.y 
-              << " vel=" << velocity.x << "," << velocity.y 
-              << " onGround=" << (onGround ? "true" : "false") << std::endl;
+
 }
 
 void Player::draw(sf::RenderWindow& window) {

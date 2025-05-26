@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Build and Run Script for my-game
+# Usage: ./run
+
+echo "🔨 Building the game..."
+echo "Running: cmake --build build"
+echo "----------------------------------------"
+
+# Build the project
+if cmake --build build; then
+    echo "✅ Build successful!"
+    echo ""
+    echo "🎮 Starting the game..."
+    echo "Running: ./build/game"
+    echo "----------------------------------------"
+    
+    # Run the game
+    ./build/game
+else
+    echo "❌ Build failed! Please check the errors above."
+    exit 1
+fi 

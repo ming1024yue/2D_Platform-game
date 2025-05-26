@@ -16,7 +16,7 @@ static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
 }
 
 Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), "2D Platform Puzzle Game"),
-               player(50.f, WINDOW_HEIGHT - 100.f, physicsSystem), // Pass physicsSystem reference
+               player(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f, physicsSystem), // Pass physicsSystem reference
                playerHit(false),
                playerHitCooldown(0.f),
                currentState(GameState::Playing),
@@ -210,38 +210,12 @@ void Game::loadAssets() {
         enemyPlaceholder.setSize(sf::Vector2f(32, 32));
         enemyPlaceholder.setFillColor(sf::Color::Red);
         
-        // Load backgrounds
+        // Initialize and load layered background system
         try {
-            // First attempt - try loading from the new organized folder structure with more paths
-            std::vector<std::string> backgroundPaths = {
-                "assets/images/backgrounds/forest/forest_background.png",
-                "assets/images/backgrounds/background.png",
-                "../assets/images/backgrounds/background.png"
-            };
-            
-            bool loaded = false;
-            for (const auto& path : backgroundPaths) {
-                try {
-                    assets.loadTexture("background", path);
-                    std::cout << "Successfully loaded background from: " << path << std::endl;
-                    loaded = true;
-                    break;
-                } catch (const std::exception& e) {
-                    std::cerr << "Failed to load background from " << path << ": " << e.what() << std::endl;
-                }
-            }
-            
-            if (loaded) {
-                backgroundSprite = std::make_unique<sf::Sprite>(assets.getTexture("background"));
-                backgroundTextureSize = assets.getTexture("background").getSize();
-                useBackgroundPlaceholder = false;
-                std::cout << "Successfully created background sprite with dimensions: " 
-                         << backgroundTextureSize.x << "x" << backgroundTextureSize.y << std::endl;
-            } else {
-                std::cerr << "Failed to load background from any path, using placeholder" << std::endl;
-            }
+            initializeBackgroundLayers();
+            loadBackgroundLayers();
         } catch (const std::exception& e) {
-            std::cerr << "Failed to load background: " << e.what() << std::endl;
+            std::cerr << "Failed to load layered backgrounds: " << e.what() << std::endl;
             // We'll use the background placeholder instead
         }
         
@@ -495,8 +469,8 @@ void Game::initializePlatforms() {
 void Game::forestLevelPlatforms() {
     // Ground platform
     sf::RectangleShape ground;
-    ground.setSize(sf::Vector2f(LEVEL_WIDTH, 60.f));
-    ground.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - 60.f));
+    ground.setSize(sf::Vector2f(LEVEL_WIDTH, GROUND_HEIGHT));
+    ground.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - GROUND_HEIGHT));
     ground.setFillColor(platformColor);
     platforms.push_back(ground);
 
@@ -564,20 +538,20 @@ void Game::forestLevelPlatforms() {
 void Game::desertLevelPlatforms() {
     // Ground platform - desert has some gaps in the ground, but safer layout
     sf::RectangleShape ground1;
-    ground1.setSize(sf::Vector2f(950.f, 60.f));  // Extended to x=950 to reduce gap
-    ground1.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - 60.f));
+    ground1.setSize(sf::Vector2f(950.f, GROUND_HEIGHT));  // Extended to x=950 to reduce gap
+    ground1.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - GROUND_HEIGHT));
     ground1.setFillColor(platformColor);
     platforms.push_back(ground1);
     
     sf::RectangleShape ground2;
-    ground2.setSize(sf::Vector2f(850.f, 60.f));  // Extended and moved closer
-    ground2.setPosition(sf::Vector2f(980.f, WINDOW_HEIGHT - 60.f));  // Moved from 1000 to 980 (smaller gap)
+    ground2.setSize(sf::Vector2f(850.f, GROUND_HEIGHT));  // Extended and moved closer
+    ground2.setPosition(sf::Vector2f(980.f, WINDOW_HEIGHT - GROUND_HEIGHT));  // Moved from 1000 to 980 (smaller gap)
     ground2.setFillColor(platformColor);
     platforms.push_back(ground2);
     
     sf::RectangleShape ground3;
-    ground3.setSize(sf::Vector2f(1000.f, 60.f));
-    ground3.setPosition(sf::Vector2f(2000.f, WINDOW_HEIGHT - 60.f));
+    ground3.setSize(sf::Vector2f(1000.f, GROUND_HEIGHT));
+    ground3.setPosition(sf::Vector2f(2000.f, WINDOW_HEIGHT - GROUND_HEIGHT));
     ground3.setFillColor(platformColor);
     platforms.push_back(ground3);
 
@@ -620,8 +594,8 @@ void Game::desertLevelPlatforms() {
 void Game::snowLevelPlatforms() {
     // Ground platform - snow level has full ground
     sf::RectangleShape ground;
-    ground.setSize(sf::Vector2f(LEVEL_WIDTH, 60.f));
-    ground.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - 60.f));
+    ground.setSize(sf::Vector2f(LEVEL_WIDTH, GROUND_HEIGHT));
+    ground.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - GROUND_HEIGHT));
     ground.setFillColor(platformColor);
     platforms.push_back(ground);
 
@@ -706,7 +680,7 @@ void Game::initializeLadders() {
         // First ladder to climb out of pit
         sf::RectangleShape ladder1;
         ladder1.setSize(sf::Vector2f(30.f, 200.f));
-        ladder1.setPosition(sf::Vector2f(950.f, WINDOW_HEIGHT - 60.f - 200.f));
+        ladder1.setPosition(sf::Vector2f(950.f, WINDOW_HEIGHT - GROUND_HEIGHT - 200.f));
         ladder1.setFillColor(ladderColor);
         ladders.push_back(ladder1);
         
@@ -796,7 +770,7 @@ void Game::initializeEnemies() {
 
 void Game::initializeForestEnemies() {
     // Enemy on ground
-    enemies.push_back(Enemy(400.f, WINDOW_HEIGHT - 90.f, 180.f));
+    enemies.push_back(Enemy(400.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 180.f));
     
     // Enemy on first platform
     enemies.push_back(Enemy(380.f, 370.f, 80.f));
@@ -815,13 +789,13 @@ void Game::initializeForestEnemies() {
 
 void Game::initializeDesertEnemies() {
     // More ground enemies in the desert
-    enemies.push_back(Enemy(300.f, WINDOW_HEIGHT - 90.f, 200.f));
-    enemies.push_back(Enemy(600.f, WINDOW_HEIGHT - 90.f, 200.f));
+    enemies.push_back(Enemy(300.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 200.f));
+    enemies.push_back(Enemy(600.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 200.f));
     
     // Desert has more ground enemies
     if (currentLevel > 2) {
-        enemies.push_back(Enemy(1200.f, WINDOW_HEIGHT - 90.f, 220.f));
-        enemies.push_back(Enemy(2200.f, WINDOW_HEIGHT - 90.f, 220.f));
+        enemies.push_back(Enemy(1200.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 220.f));
+        enemies.push_back(Enemy(2200.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 220.f));
     }
     
     // Few platform enemies
@@ -837,7 +811,7 @@ void Game::initializeDesertEnemies() {
 
 void Game::initializeSnowEnemies() {
     // Snow level has fewer ground enemies due to the cold
-    enemies.push_back(Enemy(500.f, WINDOW_HEIGHT - 90.f, 150.f));
+    enemies.push_back(Enemy(500.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 150.f));
     
     // First section climbing area has few enemies
     enemies.push_back(Enemy(280.f, 370.f, 60.f));
@@ -862,7 +836,7 @@ void Game::checkGameOver() {
 
 void Game::resetGame() {
     // Reset player
-    player.reset(50.f, WINDOW_HEIGHT - 100.f); // Start player higher above the ground
+    player.reset(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f); // Start player higher above the ground
     
     // Set player collision box
     player.setCollisionBoxSize(sf::Vector2f(28.f, 28.f));
@@ -1234,27 +1208,12 @@ void Game::nextLevel() {
             }
         }
         
-        // If we loaded a background texture, create the sprite
+        // Reload the layered background system for the new level
         if (loaded) {
-            // Update the sprite with new texture
-            backgroundSprite = std::make_unique<sf::Sprite>(assets.getTexture("background"));
-            backgroundTextureSize = assets.getTexture("background").getSize();
-            useBackgroundPlaceholder = false;
-            
-            std::cout << "Successfully created background sprite with dimensions: " 
-                      << backgroundTextureSize.x << "x" << backgroundTextureSize.y << std::endl;
-            
-            // Apply a slight tint to the background based on the level theme
-            // This helps create more visual distinction between levels
-            if (currentLevel % 3 == 1) { // Forest - slightly more green
-                backgroundSprite->setColor(sf::Color(230, 255, 230));
-            } 
-            else if (currentLevel % 3 == 2) { // Desert - warm/orange tint
-                backgroundSprite->setColor(sf::Color(255, 240, 220));
-            } 
-            else { // Snow - cool/blue tint
-                backgroundSprite->setColor(sf::Color(230, 240, 255));
-            }
+            // The old single background texture is still loaded as a fallback for the ground layer
+            // Now reload all background layers for this level
+            loadBackgroundLayers();
+            std::cout << "Reloaded layered backgrounds for level " << currentLevel << std::endl;
         }
         // If we couldn't load a background texture, use the placeholder
         else {
@@ -1411,6 +1370,38 @@ void Game::updateImGui() {
                         platformColor.r = static_cast<uint8_t>(platformColorArr[0] * 255);
                         platformColor.g = static_cast<uint8_t>(platformColorArr[1] * 255);
                         platformColor.b = static_cast<uint8_t>(platformColorArr[2] * 255);
+                    }
+                    
+                    // Background layers section
+                    ImGui::Separator();
+                    ImGui::Text("Background Layers");
+                    
+                    // Show background layer status
+                    ImGui::Text("Background: %s", useBackgroundPlaceholder ? "Using placeholder" : "Using layers");
+                    ImGui::Text("Loaded layers: %zu", backgroundLayers.size());
+                    
+                    // Layer information
+                    for (size_t i = 0; i < backgroundLayers.size(); i++) {
+                        const auto& layer = backgroundLayers[i];
+                        ImGui::Text("%s: %s (speed: %.1f)", 
+                                   layer.name.c_str(), 
+                                   layer.isLoaded ? "Loaded" : "Missing",
+                                   layer.parallaxSpeed);
+                        
+                        // Show layer controls if loaded
+                        if (layer.isLoaded) {
+                            ImGui::SameLine();
+                            std::string buttonLabel = "Reload##" + layer.name;
+                            if (ImGui::SmallButton(buttonLabel.c_str())) {
+                                // Reload just this layer
+                                loadBackgroundLayers();
+                            }
+                        }
+                    }
+                    
+                    // Reload all layers button
+                    if (ImGui::Button("Reload All Background Layers")) {
+                        loadBackgroundLayers();
                     }
                     
                     ImGui::EndTabItem();
@@ -2164,7 +2155,7 @@ void Game::jumpToLevel(int level) {
     currentLevel = level;
     
     // Reset player position and health
-    player.reset(50.f, WINDOW_HEIGHT - 100.f);
+    player.reset(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f);
     player.setCollisionBoxSize(sf::Vector2f(28.f, 28.f));
     
     // Reset view
@@ -2244,26 +2235,12 @@ void Game::jumpToLevel(int level) {
             }
         }
         
-        // If we loaded a background texture, create the sprite
+        // Reload the layered background system for the new level
         if (loaded) {
-            // Update the sprite with new texture
-            backgroundSprite = std::make_unique<sf::Sprite>(assets.getTexture("background"));
-            backgroundTextureSize = assets.getTexture("background").getSize();
-            useBackgroundPlaceholder = false;
-            
-            std::cout << "Successfully created background sprite with dimensions: " 
-                      << backgroundTextureSize.x << "x" << backgroundTextureSize.y << std::endl;
-            
-            // Apply a slight tint to the background based on the level theme
-            if (currentLevel % 3 == 1) { // Forest - slightly more green
-                backgroundSprite->setColor(sf::Color(230, 255, 230));
-            } 
-            else if (currentLevel % 3 == 2) { // Desert - warm/orange tint
-                backgroundSprite->setColor(sf::Color(255, 240, 220));
-            } 
-            else { // Snow - cool/blue tint
-                backgroundSprite->setColor(sf::Color(230, 240, 255));
-            }
+            // The old single background texture is still loaded as a fallback for the ground layer
+            // Now reload all background layers for this level
+            loadBackgroundLayers();
+            std::cout << "Reloaded layered backgrounds for level " << currentLevel << std::endl;
         }
         // If we couldn't load a background texture, use the placeholder
         else {
@@ -2338,4 +2315,201 @@ void Game::jumpToLevel(int level) {
     physicsSystem.initializeEnemies(enemies);
     
     std::cout << "Jumped to level " << currentLevel << " for testing" << std::endl;
+}
+
+// Initialize background layers with default configuration
+void Game::initializeBackgroundLayers() {
+    backgroundLayers.clear();
+    
+    // Define layers from back to front with parallax speeds
+    // The drawing order is: sky (first/back) -> clouds -> mountains -> ground (last/front)
+    // This creates the correct visual layering with ground on top and sky at the back
+    // All layers now move at the same speed (1.0f) to avoid dizzying parallax effects
+    
+    // Sky layer - moves with camera (furthest back)
+    backgroundLayers.emplace_back("sky", 0.0f, true, true);
+    
+    // Cloud layer - moves with camera (behind mountains and ground)
+    backgroundLayers.emplace_back("clouds", 0.0f, true, false);
+    
+    // Mountain layer - moves with camera (behind ground, in front of clouds)
+    backgroundLayers.emplace_back("mountains", 0.0f, true, false);
+    
+    // Ground layer - moves with camera (closest to viewer, on top of all other layers)
+    backgroundLayers.emplace_back("ground", 0.0f, true, false);
+    
+    std::cout << "Initialized " << backgroundLayers.size() << " background layers" << std::endl;
+}
+
+// Load background layer textures
+void Game::loadBackgroundLayers() {
+    useBackgroundPlaceholder = true; // Start with placeholder
+    int loadedLayers = 0;
+    
+    for (auto& layer : backgroundLayers) {
+        // Define potential paths for each layer
+        std::vector<std::string> layerPaths;
+        
+        if (layer.name == "sky") {
+            layerPaths = {
+                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/sky.png",
+                "assets/images/backgrounds/sky.png",
+                "assets/images/backgrounds/forest/sky.png",
+                "assets/images/backgrounds/desert/sky.png",
+                "assets/images/backgrounds/snow/sky.png"
+            };
+        } else if (layer.name == "clouds") {
+            layerPaths = {
+                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/clouds.png",
+                "assets/images/backgrounds/clouds.png",
+                "assets/images/backgrounds/forest/clouds.png",
+                "assets/images/backgrounds/desert/clouds.png",
+                "assets/images/backgrounds/snow/clouds.png"
+            };
+        } else if (layer.name == "mountains") {
+            layerPaths = {
+                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/mountains.png",
+                "assets/images/backgrounds/mountains.png",
+                "assets/images/backgrounds/forest/mountains.png",
+                "assets/images/backgrounds/desert/mountains.png",
+                "assets/images/backgrounds/snow/mountains.png"
+            };
+        } else if (layer.name == "ground") {
+            layerPaths = {
+                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/ground.png",
+                "assets/images/backgrounds/ground.png",
+                "assets/images/backgrounds/forest/ground.png",
+                "assets/images/backgrounds/desert/ground.png",
+                "assets/images/backgrounds/snow/ground.png",
+                // Fallback to the original background texture
+                "assets/images/backgrounds/background.png",
+                "../assets/images/backgrounds/background.png"
+            };
+        }
+        
+        // Try to load the layer texture
+        bool layerLoaded = false;
+        for (const auto& path : layerPaths) {
+            try {
+                std::string textureKey = "bg_" + layer.name;
+                assets.loadTexture(textureKey, path);
+                layer.sprite = std::make_unique<sf::Sprite>(assets.getTexture(textureKey));
+                layer.textureSize = assets.getTexture(textureKey).getSize();
+                layer.isLoaded = true;
+                layerLoaded = true;
+                loadedLayers++;
+                std::cout << "Successfully loaded " << layer.name << " layer from: " << path << std::endl;
+                std::cout << "  Texture size: " << layer.textureSize.x << "x" << layer.textureSize.y << std::endl;
+                break;
+            } catch (const std::exception& e) {
+                // Continue to next path
+            }
+        }
+        
+        if (!layerLoaded) {
+            std::cout << "Could not load " << layer.name << " layer, will skip in rendering" << std::endl;
+        }
+    }
+    
+    // If at least one layer loaded, don't use placeholder
+    if (loadedLayers > 0) {
+        useBackgroundPlaceholder = false;
+        std::cout << "Successfully loaded " << loadedLayers << " background layers" << std::endl;
+    } else {
+        std::cout << "No background layers loaded, using placeholder" << std::endl;
+    }
+}
+
+// Draw all background layers with parallax effect
+void Game::drawBackgroundLayers() {
+    sf::Vector2f viewCenter = gameView.getCenter();
+    sf::Vector2f viewSize = gameView.getSize();
+    
+    // Calculate the visible area
+    float leftX = viewCenter.x - viewSize.x / 2.0f;
+    float rightX = viewCenter.x + viewSize.x / 2.0f;
+    float topY = viewCenter.y - viewSize.y / 2.0f;
+    float bottomY = viewCenter.y + viewSize.y / 2.0f;
+    
+    // Draw layers from back to front (sky -> clouds -> mountains -> ground)
+    for (auto& layer : backgroundLayers) {
+        if (!layer.isLoaded || !layer.sprite) continue;
+        
+        // Calculate parallax offset
+        // For parallax, we want layers to move slower than the camera
+        // A speed of 0.0 means static (no movement), 1.0 means moves with camera
+        float parallaxOffsetX = (viewCenter.x - WINDOW_WIDTH / 2.0f) * layer.parallaxSpeed;
+        float parallaxOffsetY = (viewCenter.y - WINDOW_HEIGHT / 2.0f) * layer.parallaxSpeed;
+        
+        // Calculate uniform scale to maintain aspect ratio
+        float scaleX = viewSize.x / layer.textureSize.x;
+        float scaleY = viewSize.y / layer.textureSize.y;
+        
+        // Choose scaling strategy based on layer type
+        float uniformScale;
+        if (layer.name == "sky") {
+            // Sky should completely fill the screen
+            uniformScale = std::max(scaleX, scaleY);
+        } else {
+            // Other layers can use different strategies
+            uniformScale = std::max(scaleX, scaleY); // Fill screen completely
+        }
+        
+        // Apply uniform scaling
+        layer.sprite->setScale(sf::Vector2f(uniformScale, uniformScale));
+        
+        // Calculate scaled texture dimensions
+        float scaledWidth = layer.textureSize.x * uniformScale;
+        float scaledHeight = layer.textureSize.y * uniformScale;
+        
+        if (layer.tileHorizontally) {
+            // Calculate starting positions for tiling
+            float startX = std::floor((leftX + parallaxOffsetX) / scaledWidth) * scaledWidth - parallaxOffsetX;
+            float startY;
+            
+            // Special positioning for ground layer to align with actual ground platforms
+            if (layer.name == "ground") {
+                // Position ground layer to align with the actual ground platforms
+                // The ground platforms are positioned at WINDOW_HEIGHT - GROUND_HEIGHT (y=540)
+                float groundLevel = WINDOW_HEIGHT - GROUND_HEIGHT; // This is where the platforms are (y=540)
+                
+                // Position the ground texture to cover the ground platforms area
+                // We want the ground texture to be positioned so it covers the platform area
+                // The platforms are 60px high starting at y=540, so we need to cover y=540 to y=600
+                startY = groundLevel - (scaledHeight * 0.8f); // Start 80% of texture height above ground level to ensure coverage
+                
+                // Apply parallax effect for ground layer (it should move with camera)
+                startY += parallaxOffsetY;
+            } else {
+                // Normal positioning for other layers
+                startY = layer.tileVertically ? 
+                        std::floor((topY + parallaxOffsetY) / scaledHeight) * scaledHeight - parallaxOffsetY :
+                        topY + parallaxOffsetY;
+            }
+            
+            // Draw tiles
+            if (layer.tileVertically) {
+                // Tile both horizontally and vertically
+                for (float y = startY; y < bottomY + scaledHeight; y += scaledHeight) {
+                    for (float x = startX; x < rightX + scaledWidth; x += scaledWidth) {
+                        layer.sprite->setPosition(sf::Vector2f(x, y));
+                        window.draw(*layer.sprite);
+                    }
+                }
+            } else {
+                // Tile only horizontally
+                for (float x = startX; x < rightX + scaledWidth; x += scaledWidth) {
+                    layer.sprite->setPosition(sf::Vector2f(x, startY));
+                    window.draw(*layer.sprite);
+                }
+            }
+        } else {
+            // Single image, positioned with parallax
+            layer.sprite->setPosition(sf::Vector2f(
+                leftX + parallaxOffsetX,
+                topY + parallaxOffsetY
+            ));
+            window.draw(*layer.sprite);
+        }
+    }
 }

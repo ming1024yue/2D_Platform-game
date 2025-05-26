@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Compile Script for my-game
+# Usage: ./compile
+
+echo "🔨 Building the game..."
+echo "Running: cmake --build build"
+echo "----------------------------------------"
+
+if cmake --build build; then
+    echo "✅ Build successful!"
+    echo "📦 Executable created at: ./build/game"
+    echo "💡 To run the game, use: ./build/game"
+else
+    echo "❌ Build failed! Please check the errors above."
+    exit 1
+fi 
