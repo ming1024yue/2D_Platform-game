@@ -34,11 +34,8 @@ public:
     bool isOnGround() const { return onGround; }
     void setOnGround(bool grounded) { onGround = grounded; }
     bool isOnLadder() const { return onLadder; }
-    
-    // Health methods
-    int getHealth() const { return health; }
-    void decreaseHealth() { if (health > 0) health--; }
-    void resetHealth() { health = maxHealth; }
+    bool isJumping() const { return mIsJumping; }
+    void setJumping(bool jumping) { mIsJumping = jumping; }
     
     // Reset player to initial state
     void reset(float x, float y);
@@ -49,19 +46,31 @@ public:
     const sf::Sprite& getAnimatedSprite() const;
     bool hasAnimations() const;
 
+    // Debug methods
+    void drawDebugInfo(sf::RenderWindow& window);
+    void toggleDebugInfo() { showDebugInfo = !showDebugInfo; }
+    bool isDebugInfoEnabled() const { return showDebugInfo; }
+
 private:
     sf::Vector2f position;           // Player's position in the world
     sf::RectangleShape collisionBox; // Collision box for physics
     sf::Vector2f collisionOffset;    // Offset of collision box from position
     sf::Vector2f velocity;
-    bool isJumping;
+    bool mIsJumping;                 // Renamed from isJumping to avoid conflict
     bool onGround;
     bool onLadder;
     bool facingLeft;                 // Track which direction player is facing
     
-    // Health properties
-    int health;
-    int maxHealth;
+    // Debug properties
+    bool showDebugInfo = false;
+    sf::Clock stateChangeTimer;
+    struct StateDebugInfo {
+        float timeInCurrentState = 0.0f;
+        int stateChanges = 0;
+        bool prevOnGround = false;
+        bool prevIsJumping = false;
+        float lastGroundY = 0.0f;
+    } debugInfo;
     
     // Reference to physics system
     PhysicsSystem& physicsSystem;

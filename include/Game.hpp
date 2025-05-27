@@ -85,9 +85,6 @@ private:
     void updateFPS();
     void drawFPS();
     
-    // Helper to create a heart shape
-    sf::RectangleShape createHeartIcon(float x, float y, bool filled);
-    
     // Logging methods
     void logDebug(const std::string& message);
     void logInfo(const std::string& message);
@@ -139,10 +136,8 @@ private:
     // UI elements
     sf::Font defaultFont; // Default font for initialization
     sf::Font font;        // Game font that will be loaded
-    sf::Text healthText;
     sf::Text gameOverText;
     sf::Text restartText;
-    std::vector<sf::RectangleShape> heartIcons; // Heart icons for health display
     
     // Settings variables
     bool showBoundingBoxes;
@@ -187,7 +182,7 @@ private:
     static constexpr int FPS = 60;
     static constexpr float HIT_COOLDOWN = 1.5f; // 1.5 seconds invulnerability
     static constexpr float LEVEL_TRANSITION_DURATION = 2.0f; // Duration of level transition in seconds
-    static constexpr float GROUND_HEIGHT = 40.f; // Height of the ground platform from bottom of screen
+    static constexpr float GROUND_HEIGHT = 100.f; // Height of the ground platform from bottom of screen
     
     // Mini-map constants
     static constexpr int MINI_MAP_WIDTH = 200;
@@ -220,4 +215,7 @@ private:
     std::ofstream gameLogFile;
     bool loggingEnabled = true;
     std::string gameLogFileName = "game_debug.log";
+
+    // Debug properties
+    bool showPlayerDebug = false;
 }; 

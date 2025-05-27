@@ -31,6 +31,9 @@ public:
     // Update physics
     void update(float deltaTime, Player& player, std::vector<Enemy>& enemies);
     
+    // Ground detection
+    bool isEntityOnGround(const PhysicsComponent& entityPhysics, const sf::Vector2f& position, float checkDistance) const;
+    
     // Getters and setters for physics properties
     void setGravity(float g) { gravity = g; }
     float getGravity() const { return gravity; }

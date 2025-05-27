@@ -18,11 +18,10 @@ static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
 }
 
 Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), "2D Platform Puzzle Game"),
-               player(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f, physicsSystem), // Pass physicsSystem reference
+               player(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 80.f, physicsSystem), // Pass physicsSystem reference
                playerHit(false),
                playerHitCooldown(0.f),
                currentState(GameState::Playing),
-               healthText(defaultFont, sf::String("HP: 3"), 24),
                gameOverText(defaultFont, sf::String("GAME OVER"), 48),
                restartText(defaultFont, sf::String("Press ENTER to restart"), 24),
                fpsText(defaultFont, sf::String("FPS: 0"), 16),
@@ -34,7 +33,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                playerSpeed(200.f),
                isRunning(true),
                previousState(GameState::Playing),
-               showBoundingBoxes(true),
+               showBoundingBoxes(false),
                gameSpeed(1.0f),
                platformColor(34, 139, 34),
                playerBorderColor(0, 255, 0),
@@ -45,7 +44,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                showDebugGrid(false),
                gridSize(50.0f),
                gridColor(128, 128, 128, 64),  // Semi-transparent gray
-               gridOriginColor(255, 255, 0, 128),  // Semi-transparent yellow for origin
+               gridOriginColor(255, 255, 0, 128),  // Semi-transparent yellow
                gridAxesColor(255, 255, 255, 96),   // Semi-transparent white for axes
                fpsUpdateTime(0.0f),
                frameCount(0),
@@ -336,26 +335,6 @@ void Game::loadAssets() {
     }
 }
 
-sf::RectangleShape Game::createHeartIcon(float x, float y, bool filled) {
-    // Create a simple pixel art heart using a rectangle with custom texture
-    sf::RectangleShape heart;
-    heart.setSize(sf::Vector2f(24.f, 24.f)); // 24x24 pixel heart
-    heart.setPosition(sf::Vector2f(x, y));
-    
-    // Set color based on filled status (red for filled, darker red for empty)
-    if (filled) {
-        heart.setFillColor(sf::Color(255, 40, 40)); // Bright red
-    } else {
-        heart.setFillColor(sf::Color(150, 20, 20)); // Dark red
-    }
-    
-    // Add outline for better visibility
-    heart.setOutlineColor(sf::Color::Black);
-    heart.setOutlineThickness(1.0f);
-    
-    return heart;
-}
-
 void Game::initializeUI() {
     // Try to load the pixel art font first
     bool fontLoaded = false;
@@ -377,11 +356,10 @@ void Game::initializeUI() {
     
     if (fontLoaded) {
         // Set the font for all text elements
-        healthText.setFont(font);
         gameOverText.setFont(font);
         restartText.setFont(font);
         levelText.setFont(font); 
-        fpsText.setFont(font); // Also update the FPS text font
+        fpsText.setFont(font);
     }
     
     // Make FPS text more visible - use larger size and bright color
@@ -389,17 +367,6 @@ void Game::initializeUI() {
     fpsText.setOutlineColor(sf::Color::Black);
     fpsText.setOutlineThickness(2.0f);
     fpsText.setCharacterSize(24); // Larger text
-    
-    // Configure health text properties for pixel art style
-    healthText.setFillColor(sf::Color::White);
-    healthText.setOutlineColor(sf::Color::Black);
-    healthText.setOutlineThickness(1.0f);
-    healthText.setLetterSpacing(1.5f); // Add some spacing for that pixel art feel
-    
-    // Position the text in the top-left with a small margin
-    // Just use text for "HP:" label
-    healthText.setString(sf::String("HP:"));
-    healthText.setPosition(sf::Vector2f(16.f, 16.f));
     
     // Configure level text
     levelText.setString("Level " + std::to_string(currentLevel));
@@ -439,28 +406,10 @@ void Game::initializeUI() {
         WINDOW_WIDTH / 2.f - restartBounds.size.x / 2.f,
         WINDOW_HEIGHT / 2.f - restartBounds.size.y / 2.f + 40.f
     ));
-    
-    // Create heart icons for health
-    const float heartStartX = 60.f; // Start after the "HP:" text
-    const float heartY = 16.f;      // Same Y position as text
-    const float heartSpacing = 30.f; // Space between hearts
-    
-    // Clear any existing hearts
-    heartIcons.clear();
-    
-    // Create heart icons based on max health (assuming 3 max)
-    for (int i = 0; i < 3; i++) {
-        bool filled = i < player.getHealth();
-        heartIcons.push_back(createHeartIcon(heartStartX + i * heartSpacing, heartY, filled));
-    }
 }
 
 void Game::updateUI() {
-    // Update heart icons to reflect current health
-    for (int i = 0; i < heartIcons.size(); i++) {
-        bool filled = i < player.getHealth();
-        heartIcons[i].setFillColor(filled ? sf::Color(255, 40, 40) : sf::Color(150, 20, 20));
-    }
+    // No UI updates needed since health system is removed
 }
 
 void Game::initializePlatforms() {
@@ -563,9 +512,30 @@ void Game::initializeSnowForestEnemies() {
 }
 
 void Game::checkGameOver() {
-    // Check if player health is zero
-    if (player.getHealth() <= 0 && currentState == GameState::Playing) {
+    // Only check for game over if player is not jumping
+    if (player.isJumping()) {
+        return;
+    }
+    
+    // Only reset game when player falls off the level completely and is not jumping
+    float fallThreshold = WINDOW_HEIGHT + 200.0f; // Give extra room below window
+    
+    if (player.getPosition().y > fallThreshold && !player.isJumping()) {
         currentState = GameState::GameOver;
+        
+        // Position game over text
+        sf::FloatRect gameOverBounds = gameOverText.getGlobalBounds();
+        gameOverText.setPosition(sf::Vector2f(
+            WINDOW_WIDTH / 2.f - gameOverBounds.size.x / 2.f,
+            WINDOW_HEIGHT / 2.f - gameOverBounds.size.y / 2.f - 40.f
+        ));
+        
+        // Position restart text
+        sf::FloatRect restartBounds = restartText.getGlobalBounds();
+        restartText.setPosition(sf::Vector2f(
+            WINDOW_WIDTH / 2.f - restartBounds.size.x / 2.f,
+            WINDOW_HEIGHT / 2.f - restartBounds.size.y / 2.f + 40.f
+        ));
     }
 }
 
@@ -617,9 +587,6 @@ void Game::checkPlayerEnemyCollision() {
             // Player hit by enemy
             playerHit = true;
             playerHitCooldown = HIT_COOLDOWN;
-            
-            // Decrease player health
-            player.decreaseHealth();
             
             // Push player away from enemy
             if (player.getPosition().x < enemy.getGlobalBounds().position.x) {
@@ -781,6 +748,11 @@ void Game::initializeMiniMap() {
 }
 
 void Game::checkLevelCompletion() {
+    // Only check for level completion if player is on ground
+    if (!player.isOnGround()) {
+        return;
+    }
+    
     // Check if player has reached the end of the level (right edge)
     if (player.getPosition().x >= LEVEL_WIDTH - player.getSize().x - 50.f) {
         // Player has reached the end of the level
@@ -1758,7 +1730,7 @@ void Game::jumpToLevel(int level) {
     // Set the current level
     currentLevel = level;
     
-    // Reset player position and health
+    // Reset player position
     player.reset(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f);
     player.setCollisionBoxSize(sf::Vector2f(28.f, 28.f));
     

@@ -94,7 +94,12 @@ void Game::handleEvents() {
                 showMiniMap = !showMiniMap;
             }
             
-
+            // Toggle player debug info with F3 key
+            if (key->code == sf::Keyboard::Key::F3) {
+                showPlayerDebug = !showPlayerDebug;
+                player.toggleDebugInfo();
+                logDebug("Player debug info " + std::string(showPlayerDebug ? "enabled" : "disabled"));
+            }
             
             // Toggle debug grid with G key
             if (key->code == sf::Keyboard::Key::G) {
@@ -177,231 +182,22 @@ void Game::draw() {
     
     // Draw enemies
     if (showEnemies) {
-        for (size_t enemyIdx = 0; enemyIdx < enemies.size(); enemyIdx++) {
-            const auto& enemy = enemies[enemyIdx];
-            // Then draw enemy sprite on top if available
-            if (!useEnemyPlaceholder && enemySprite) {
-                // Position and scale the sprite to match the enemy shape
-                sf::FloatRect bounds = enemy.getGlobalBounds();
-                
-                // Get enemy velocity to determine direction
-                sf::Vector2f enemyVelocity = enemy.getVelocity();
-                bool facingLeft = enemyVelocity.x < 0;
-                
-                // Calculate scale to match the shape size and apply enlargement factor
-                sf::Vector2u textureSize = enemySprite->getTexture().getSize();
-                float scaleX = bounds.size.x / textureSize.x * spriteScale;
-                float scaleY = bounds.size.y / textureSize.y * spriteScale;
-                
-                // Flip horizontally if facing left by making scale negative
-                if (facingLeft) {
-                    scaleX = -scaleX;
-                }
-                
-                enemySprite->setScale(sf::Vector2f(scaleX, scaleY));
-                
-                // Center the sprite on the shape, adjust for flipping
-                float offsetX;
-                if (facingLeft) {
-                    // When flipped, we need to adjust the X position
-                    // The correct adjustment for a flipped sprite
-                    offsetX = (bounds.size.x - (textureSize.x * scaleX)) / 2.0f;
-                } else {
-                    offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
-                }
-                float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
-                enemySprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
-                
-                window.draw(*enemySprite);
-                
-                // Draw physics collision box only if enabled
-                if (showBoundingBoxes) {
-                    // Draw physics collision box - use actual physics component
-                    if (enemyIdx < physicsSystem.getEnemyPhysicsCount()) {
-                        sf::FloatRect physicsBox = physicsSystem.getEnemyPhysicsComponent(enemyIdx).collisionBox;
-                        sf::RectangleShape collisionBox;
-                        collisionBox.setSize(sf::Vector2f(physicsBox.size.x, physicsBox.size.y));
-                        collisionBox.setPosition(sf::Vector2f(physicsBox.position.x, physicsBox.position.y));
-                        collisionBox.setFillColor(sf::Color(255, 0, 0, 50)); // Semi-transparent red
-                        collisionBox.setOutlineColor(sf::Color(255, 0, 0));
-                        collisionBox.setOutlineThickness(1.0f);
-                        window.draw(collisionBox);
-                    }
-                }
-            } else if (useEnemyPlaceholder) {
-                // Position the placeholder rectangle to match the enemy
-                sf::FloatRect bounds = enemy.getGlobalBounds();
-                
-                // Get enemy velocity to determine direction
-                sf::Vector2f enemyVelocity = enemy.getVelocity();
-                bool facingLeft = enemyVelocity.x < 0;
-                
-                // Just draw a simple placeholder, no boundary box
-                enemyPlaceholder.setSize(sf::Vector2f(bounds.size.x, bounds.size.y));
-                enemyPlaceholder.setPosition(sf::Vector2f(bounds.position.x, bounds.position.y));
-                enemyPlaceholder.setFillColor(sf::Color::Red);
-                enemyPlaceholder.setOutlineColor(sf::Color::Black);
-                enemyPlaceholder.setOutlineThickness(1.0f);
-                
-                // Draw a small triangle on the placeholder to indicate direction
-                sf::ConvexShape directionIndicator;
-                directionIndicator.setPointCount(3);
-                
-                if (facingLeft) {
-                    // Triangle pointing left
-                    directionIndicator.setPoint(0, sf::Vector2f(bounds.position.x + 5, bounds.position.y + bounds.size.y/2));
-                    directionIndicator.setPoint(1, sf::Vector2f(bounds.position.x + 15, bounds.position.y + bounds.size.y/2 - 5));
-                    directionIndicator.setPoint(2, sf::Vector2f(bounds.position.x + 15, bounds.position.y + bounds.size.y/2 + 5));
-                } else {
-                    // Triangle pointing right
-                    directionIndicator.setPoint(0, sf::Vector2f(bounds.position.x + bounds.size.x - 5, bounds.position.y + bounds.size.y/2));
-                    directionIndicator.setPoint(1, sf::Vector2f(bounds.position.x + bounds.size.x - 15, bounds.position.y + bounds.size.y/2 - 5));
-                    directionIndicator.setPoint(2, sf::Vector2f(bounds.position.x + bounds.size.x - 15, bounds.position.y + bounds.size.y/2 + 5));
-                }
-                
-                directionIndicator.setFillColor(sf::Color::Yellow);
-                
-                window.draw(enemyPlaceholder);
-                window.draw(directionIndicator);
-            }
+        for (const auto& enemy : enemies) {
+            enemy.draw(window);
         }
     }
     
     // Draw player
-    if (player.hasAnimations()) {
-        // Use the player's animation system
-        sf::Sprite animatedSprite = player.getAnimatedSprite();
-        
-        // Position the sprite at the player's position
-        animatedSprite.setPosition(player.getPosition());
-        
-        // Handle sprite flipping for direction
-        if (player.isFacingLeft()) {
-            // Flip the sprite horizontally
-            sf::Vector2f scale = animatedSprite.getScale();
-            animatedSprite.setScale(sf::Vector2f(-std::abs(scale.x), scale.y));
-            // Adjust position to account for flipping
-            sf::Vector2f playerSize = player.getSize();
-            animatedSprite.setPosition(sf::Vector2f(player.getPosition().x + playerSize.x, player.getPosition().y));
-        } else {
-            // Ensure sprite is not flipped
-            sf::Vector2f scale = animatedSprite.getScale();
-            animatedSprite.setScale(sf::Vector2f(std::abs(scale.x), scale.y));
-            animatedSprite.setPosition(player.getPosition());
-        }
-        
-        window.draw(animatedSprite);
-    } else if (!usePlayerPlaceholder && playerSprite) {
-        // Fallback to static sprite if animations aren't loaded
-        // Position and scale the sprite to match the player shape
-        sf::FloatRect bounds = player.getGlobalBounds();
-        
-        // Get player velocity to determine direction
-        sf::Vector2f playerVelocity = player.getVelocity();
-        // For player, we also need to check the last pressed direction key
-        // since the player might be standing still but facing a direction
-        bool facingLeft = playerVelocity.x < 0 || player.isFacingLeft();
-        
-        // Calculate scale to match the shape size and apply enlargement factor
-        sf::Vector2u textureSize = playerSprite->getTexture().getSize();
-        float scaleX = bounds.size.x / textureSize.x * spriteScale;
-        float scaleY = bounds.size.y / textureSize.y * spriteScale;
-        
-        // Flip horizontally if facing left by making scale negative
-        if (facingLeft) {
-            scaleX = -scaleX;
-        }
-        
-        playerSprite->setScale(sf::Vector2f(scaleX, scaleY));
-        
-        // Center the sprite on the shape, adjust for flipping
-        float offsetX;
-        if (facingLeft) {
-            // When flipped, we need to adjust the X position 
-            // The correct adjustment for a flipped sprite
-            offsetX = (bounds.size.x - (textureSize.x * scaleX)) / 2.0f;
-        } else {
-            offsetX = (bounds.size.x - (bounds.size.x * spriteScale)) / 2.0f;
-        }
-        float offsetY = (bounds.size.y - (bounds.size.y * spriteScale)) / 2.0f;
-        playerSprite->setPosition(sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY));
-        
-        window.draw(*playerSprite);
-        
-        // Draw physics collision box only if enabled
-        if (showBoundingBoxes) {
-            // Draw physics collision box - use actual physics component
-            sf::FloatRect physicsBox = physicsSystem.getPlayerPhysicsComponent().collisionBox;
-            sf::RectangleShape collisionBox;
-            collisionBox.setSize(sf::Vector2f(physicsBox.size.x, physicsBox.size.y));
-            collisionBox.setPosition(sf::Vector2f(physicsBox.position.x, physicsBox.position.y));
-            
-            // Change color based on player state (green normally, blue when on ladder)
-            if (player.isOnLadder()) {
-                // Blue when on ladder to indicate ladder physics is active
-                collisionBox.setFillColor(sf::Color(0, 100, 255, 50)); // Semi-transparent blue
-                collisionBox.setOutlineColor(sf::Color(0, 100, 255));
-            } else {
-                // Regular green physics box
-                collisionBox.setFillColor(sf::Color(0, 255, 0, 50)); // Semi-transparent green
-                collisionBox.setOutlineColor(sf::Color(0, 255, 0));
-            }
-            
-            collisionBox.setOutlineThickness(1.0f);
-            window.draw(collisionBox);
-        }
-    } else if (usePlayerPlaceholder) {
-        // Position the placeholder rectangle to match the player
-        sf::FloatRect bounds = player.getGlobalBounds();
-        
-        // Get player facing direction
-        bool facingLeft = player.isFacingLeft();
-        
-        // Just draw a simple placeholder, no boundary box
-        playerPlaceholder.setSize(sf::Vector2f(bounds.size.x, bounds.size.y));
-        playerPlaceholder.setPosition(sf::Vector2f(bounds.position.x, bounds.position.y));
-        playerPlaceholder.setFillColor(sf::Color::Blue);
-        playerPlaceholder.setOutlineColor(sf::Color::Black);
-        playerPlaceholder.setOutlineThickness(1.0f);
-        
-        // Draw a small triangle on the placeholder to indicate direction
-        sf::ConvexShape directionIndicator;
-        directionIndicator.setPointCount(3);
-        
-        if (facingLeft) {
-            // Triangle pointing left
-            directionIndicator.setPoint(0, sf::Vector2f(bounds.position.x + 5, bounds.position.y + bounds.size.y/2));
-            directionIndicator.setPoint(1, sf::Vector2f(bounds.position.x + 15, bounds.position.y + bounds.size.y/2 - 5));
-            directionIndicator.setPoint(2, sf::Vector2f(bounds.position.x + 15, bounds.position.y + bounds.size.y/2 + 5));
-        } else {
-            // Triangle pointing right
-            directionIndicator.setPoint(0, sf::Vector2f(bounds.position.x + bounds.size.x - 5, bounds.position.y + bounds.size.y/2));
-            directionIndicator.setPoint(1, sf::Vector2f(bounds.position.x + bounds.size.x - 15, bounds.position.y + bounds.size.y/2 - 5));
-            directionIndicator.setPoint(2, sf::Vector2f(bounds.position.x + bounds.size.x - 15, bounds.position.y + bounds.size.y/2 + 5));
-        }
-        
-        directionIndicator.setFillColor(sf::Color::Yellow);
-        
-        window.draw(playerPlaceholder);
-        window.draw(directionIndicator);
+    player.draw(window);
+    
+    // Draw player debug info if enabled
+    if (showPlayerDebug) {
+        player.drawDebugInfo(window);
     }
-    
-
-    
-    // Switch to UI view for UI elements
-    window.setView(uiView);
     
     // Draw UI elements only if not using ImGui or it's a state-specific UI
     if (!useImGuiInterface || currentState != GameState::Playing) {
         if (currentState == GameState::Playing) {
-            // Draw health UI during gameplay
-            window.draw(healthText);
-            
-            // Draw heart icons
-            for (const auto& heart : heartIcons) {
-                window.draw(heart);
-            }
-            
             // Draw level indicator at the top
             window.draw(levelText);
         } else if (currentState == GameState::GameOver) {

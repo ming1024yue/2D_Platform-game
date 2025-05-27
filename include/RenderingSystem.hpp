@@ -173,7 +173,7 @@ private:
     sf::RectangleShape enemyPlaceholder;
     
     // Rendering settings
-    bool showBoundingBoxes = true;
+    bool showBoundingBoxes = false;
     bool showDebugGrid = false;
     bool showMiniMap = true;
 
@@ -189,6 +189,7 @@ private:
     // Tile management (from TileRenderer)
     std::vector<std::unique_ptr<sf::Texture>> tileTextures;
     std::vector<std::unique_ptr<sf::Sprite>> tileSprites;
+    std::vector<std::string> tileFilenames; // Store filenames of loaded tiles
     
     // Tile settings
     int tileSize = 16;
@@ -209,7 +210,7 @@ private:
     // Constants for background rendering (moved from Game class)
     static constexpr int WINDOW_WIDTH = 800;
     static constexpr int WINDOW_HEIGHT = 600;
-    static constexpr float GROUND_HEIGHT = 60.f;
+    static constexpr float GROUND_HEIGHT = 100.f;
     
     // Helper methods
     void renderSpriteWithDirection(const sf::Sprite& sprite, const sf::Vector2f& position, bool facingLeft = false);

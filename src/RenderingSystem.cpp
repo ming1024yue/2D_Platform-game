@@ -538,6 +538,7 @@ std::string RenderingSystem::getCurrentTimestamp() {
 bool RenderingSystem::loadTiles(const std::string& tilesDirectory) {
     tileTextures.clear();
     tileSprites.clear();
+    tileFilenames.clear(); // Clear stored filenames
     
     logInfo("Loading tiles from: " + tilesDirectory);
     
@@ -555,6 +556,7 @@ bool RenderingSystem::loadTiles(const std::string& tilesDirectory) {
                 std::string filename = entry.path().filename().string();
                 if (filename.size() >= 4 && filename.substr(filename.size() - 4) == ".png") {
                     tileFiles.push_back(entry.path().string());
+                    tileFilenames.push_back(filename); // Store the filename
                 }
             }
         }
@@ -565,6 +567,7 @@ bool RenderingSystem::loadTiles(const std::string& tilesDirectory) {
     
     // Sort files to ensure consistent loading order
     std::sort(tileFiles.begin(), tileFiles.end());
+    std::sort(tileFilenames.begin(), tileFilenames.end());
     
     if (tileFiles.empty()) {
         logError("No PNG files found in tiles directory");
@@ -720,11 +723,27 @@ std::vector<RenderingSystem::TilePosition> RenderingSystem::generateTileLayout(
     int tilesX = static_cast<int>(std::ceil(platformSize.x / scaledTileSize));
     int tilesY = static_cast<int>(std::ceil(platformSize.y / scaledTileSize));
     
-    // Create a deterministic seed based on platform position for consistent randomization
-    // This ensures the same platform always gets the same random pattern
+    // Find the black tile index and snow tile indices
+    int blackTileIndex = -1;
+    std::vector<int> snowTileIndices;
+    
+    // Find the indices for black and snow tiles
+    for (size_t i = 0; i < tileFilenames.size(); i++) {
+        const std::string& filename = tileFilenames[i];
+        if (filename == "tile_black.png") {
+            blackTileIndex = i;
+        } else if (filename.find("tile_00_") != std::string::npos) {
+            snowTileIndices.push_back(i);
+        }
+    }
+    
+    // If we couldn't find our tiles, use the first tile as fallback
+    if (blackTileIndex == -1) blackTileIndex = 0;
+    if (snowTileIndices.empty()) snowTileIndices.push_back(0);
+    
+    // Create a deterministic seed based on platform position
     std::mt19937 localRandom;
     if (randomize && randomizationEnabled) {
-        // Use platform position as seed to ensure consistent randomization per platform
         uint32_t seed = static_cast<uint32_t>(platformPos.x * 1000 + platformPos.y * 1000);
         localRandom.seed(seed);
     }
@@ -735,15 +754,19 @@ std::vector<RenderingSystem::TilePosition> RenderingSystem::generateTileLayout(
             tilePos.x = x;
             tilePos.y = y;
             
-            if (randomize && randomizationEnabled) {
-                // Use local random generator with deterministic seed for consistent results
-                std::uniform_int_distribution<int> localDist(0, static_cast<int>(tileTextures.size() - 1));
-                tilePos.tileIndex = localDist(localRandom);
+            if (y == 0) {
+                // Top layer - use snow tiles
+                if (randomize && randomizationEnabled) {
+                    // Randomly select from snow tiles
+                    std::uniform_int_distribution<int> snowDist(0, snowTileIndices.size() - 1);
+                    tilePos.tileIndex = snowTileIndices[snowDist(localRandom)];
+                } else {
+                    // Use a pattern for snow tiles
+                    tilePos.tileIndex = snowTileIndices[x % snowTileIndices.size()];
+                }
             } else {
-                // Use a deterministic pattern based on position
-                // This creates a consistent but varied pattern
-                int patternIndex = (x * 3 + y * 7) % tileTextures.size();
-                tilePos.tileIndex = patternIndex;
+                // Under layers - use black tile
+                tilePos.tileIndex = blackTileIndex;
             }
             
             layout.push_back(tilePos);

@@ -1,0 +1,91 @@
+{
+  "width": 50,
+  "height": 15,
+  "layers": {
+    "background": [],
+    "terrain": [
+      {
+        "type": "platform",
+        "x": 0,
+        "y": 10,
+        "width": 8,
+        "slope_type": null
+      },
+      {
+        "type": "platform",
+        "x": 8,
+        "y": 8,
+        "width": 6,
+        "slope_type": "right"
+      },
+      {
+        "type": "platform",
+        "x": 14,
+        "y": 6,
+        "width": 10,
+        "slope_type": null
+      },
+      {
+        "type": "platform",
+        "x": 24,
+        "y": 8,
+        "width": 6,
+        "slope_type": "left"
+      },
+      {
+        "type": "platform",
+        "x": 30,
+        "y": 10,
+        "width": 20,
+        "slope_type": null
+      }
+    ],
+    "decoration": [
+      {
+        "type": "tree",
+        "x": 2,
+        "y": 7,
+        "height": 3
+      },
+      {
+        "type": "tree",
+        "x": 16,
+        "y": 3,
+        "height": 3
+      },
+      {
+        "type": "tree",
+        "x": 28,
+        "y": 7,
+        "height": 3
+      },
+      {
+        "type": "tree",
+        "x": 35,
+        "y": 7,
+        "height": 3
+      },
+      {
+        "type": "tree",
+        "x": 42,
+        "y": 7,
+        "height": 3
+      },
+      {
+        "type": "cabin",
+        "x": 18,
+        "y": 4
+      },
+      {
+        "type": "snowman",
+        "x": 5,
+        "y": 9
+      },
+      {
+        "type": "snowman",
+        "x": 32,
+        "y": 9
+      }
+    ]
+  }
+}

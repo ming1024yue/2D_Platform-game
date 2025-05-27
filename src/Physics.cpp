@@ -61,7 +61,15 @@ void PhysicsSystem::initializePlayer(Player& player) {
         sf::Vector2f(width, height)
     );
     
+    // Initialize with zero velocity since we'll position player properly
     playerPhysics.velocity = sf::Vector2f(0.0f, 0.0f);
+    player.setVelocity(playerPhysics.velocity);
+    
+    // Ensure player is positioned correctly relative to ground
+    float groundLevel = windowHeight - 100.0f; // Match Game::GROUND_HEIGHT
+    float desiredBottom = groundLevel - 1.0f; // Position slightly above ground
+    float newY = desiredBottom - height; // Use collision height for accurate positioning
+    player.setPosition(sf::Vector2f(player.getPosition().x, newY));
 }
 
 void PhysicsSystem::initializePlatforms(const std::vector<sf::RectangleShape>& platforms) {
@@ -105,10 +113,7 @@ void PhysicsSystem::initializeEnemies(const std::vector<Enemy>& enemies) {
 }
 
 void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& enemies) {
-    // Get the player's current ground state
-    bool playerIsOnGround = player.isOnGround();
-    
-    // Update player physics
+    // Update player physics component
     sf::FloatRect playerBounds = player.getGlobalBounds();
     float width = playerBounds.size.x * playerCollisionWidth;
     float height = playerBounds.size.y * playerCollisionHeight;
@@ -128,7 +133,19 @@ void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& 
     // Apply gravity to player if not on ground and not on ladder
     bool isOnLadder = player.isOnLadder();
     
-    if (playerPhysics.hasGravity && !playerIsOnGround && !isOnLadder) {
+    // Check ground state first, but be more lenient during jumps
+    bool playerOnGround = false;
+    if (!player.isJumping() || playerPhysics.velocity.y > 0) {
+        // Only check for ground when not jumping up
+        playerOnGround = isEntityOnGround(playerPhysics, player.getPosition(), 5.0f);
+    }
+    
+    // Update player's ground state only if not actively jumping upward
+    if (!player.isJumping() || playerPhysics.velocity.y >= 0) {
+        player.setOnGround(playerOnGround);
+    }
+    
+    if (playerPhysics.hasGravity && !playerOnGround && !isOnLadder) {
         // Apply gravity
         playerPhysics.velocity.y += gravity * deltaTime;
         
@@ -136,7 +153,7 @@ void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& 
         if (playerPhysics.velocity.y > terminalVelocity) {
             playerPhysics.velocity.y = terminalVelocity;
         }
-    } else if (playerIsOnGround) {
+    } else if (playerOnGround) {
         // When on ground, respect the player's vertical velocity
         // This allows jumps to be initiated
         if (playerPhysics.velocity.y < 0) {
@@ -145,11 +162,11 @@ void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& 
         } else {
             // Reset vertical velocity when on ground and not jumping
             playerPhysics.velocity.y = 0;
+            if (!player.isJumping()) {
+                player.setJumping(false); // Only reset jump state if not actively jumping
+            }
         }
-    } else if (isOnLadder) {
-        // When on ladder, use player's own velocity control
-        playerPhysics.velocity = player.getVelocity();
-    }
+    } 
     
     // Update enemy physics
     for (size_t i = 0; i < enemies.size() && i < enemyPhysics.size(); ++i) {
@@ -184,30 +201,48 @@ void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& 
     applyPhysicsToEntities(player, enemies);
 }
 
+bool PhysicsSystem::isEntityOnGround(const PhysicsComponent& entityPhysics, const sf::Vector2f& position, float checkDistance) const {
+    // First check main ground platform
+    float groundLevel = windowHeight - 100.0f; // Match Game::GROUND_HEIGHT
+    float entityBottom = position.y + entityPhysics.collisionBox.size.y;
+    
+    // Use a smaller check distance for more stable detection
+    float actualCheckDistance = 2.0f; // Reduced from the passed-in value for more stability
+    
+    // Check if entity is at ground level
+    if (entityBottom >= groundLevel - actualCheckDistance && entityBottom <= groundLevel + actualCheckDistance) {
+        return true;
+    }
+    
+    // Then check all other platforms
+    for (const auto& platform : platformPhysics) {
+        float platformTop = platform.collisionBox.position.y;
+        float platformLeft = platform.collisionBox.position.x;
+        float platformRight = platformLeft + platform.collisionBox.size.x;
+        
+        // Check if entity is above the platform horizontally
+        if (position.x + entityPhysics.collisionBox.size.x >= platformLeft && 
+            position.x <= platformRight) {
+            
+            // Check if entity is at the right height for the platform
+            if (entityBottom >= platformTop - actualCheckDistance && 
+                entityBottom <= platformTop + actualCheckDistance) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
 void PhysicsSystem::resolveCollisions(Player& player, std::vector<Enemy>& enemies) {
     // Skip platform collisions when on ladder
     if (!player.isOnLadder()) {
-        // Debug output for collision detection
-        std::cout << "Checking collisions. Player pos: " << player.getPosition().x << ", " 
-                  << player.getPosition().y << std::endl;
-        
-        // Always check ground platform first to ensure ground collision works
-        bool playerOnGround = false;
-        
         // Check player collision with platforms
         for (size_t i = 0; i < platformPhysics.size(); i++) {
             const auto& platform = platformPhysics[i];
             
-            // Debug info for platform
-            if (i == 0) { // Ground platform is first
-                std::cout << "Ground platform: " << platform.collisionBox.position.x << ", " 
-                          << platform.collisionBox.position.y << " size: " 
-                          << platform.collisionBox.size.x << ", " << platform.collisionBox.size.y << std::endl;
-            }
-            
             if (checkCollision(playerPhysics, platform)) {
-                std::cout << "Collision detected with platform " << i << std::endl;
-                
                 // Get previous position (before applying velocity)
                 sf::Vector2f prevPos = sf::Vector2f(
                     player.getPosition().x - player.getVelocity().x,
@@ -220,7 +255,7 @@ void PhysicsSystem::resolveCollisions(Player& player, std::vector<Enemy>& enemie
                     // Player is falling - land on platform
                     playerPhysics.velocity.y = 0;
                     player.setOnGround(true);
-                    playerOnGround = true;
+                    player.setJumping(false); // Reset jump state when landing
                     
                     // Position player on top of platform with a small offset to prevent sinking
                     float newY = platform.collisionBox.position.y - playerPhysics.collisionBox.size.y - 0.1f;
@@ -233,14 +268,6 @@ void PhysicsSystem::resolveCollisions(Player& player, std::vector<Enemy>& enemie
                     playerPhysics.velocity.y = -playerPhysics.velocity.y * playerPhysics.bounceFactor;
                 }
             }
-        }
-        
-        // Special case: If player is below the ground platform, force them above it
-        if (!playerOnGround && player.getPosition().y > windowHeight - 90) {
-            player.setPosition(sf::Vector2f(player.getPosition().x, windowHeight - 90));
-            player.setOnGround(true);
-            playerPhysics.velocity.y = 0;
-            std::cout << "Forced player onto ground" << std::endl;
         }
     }
     
@@ -290,9 +317,6 @@ bool PhysicsSystem::checkCollision(const PhysicsComponent& a, const PhysicsCompo
 }
 
 void PhysicsSystem::applyPhysicsToEntities(Player& player, std::vector<Enemy>& enemies) {
-    // Debug output for player position
-    std::cout << "Player position: " << player.getPosition().x << ", " << player.getPosition().y << std::endl;
-    
     // If player is jumping (negative Y velocity), preserve that
     if (player.getVelocity().y < 0) {
         // Keep player's jump velocity
@@ -302,18 +326,6 @@ void PhysicsSystem::applyPhysicsToEntities(Player& player, std::vector<Enemy>& e
         sf::Vector2f playerVel = player.getVelocity();
         playerVel.y = playerPhysics.velocity.y;
         player.setVelocity(playerVel);
-    }
-    
-    // Make sure player starts on ground if it's near the ground platform
-    if (player.getPosition().y > windowHeight - 100) {
-        // Snap to ground if close to it
-        player.setPosition(sf::Vector2f(player.getPosition().x, windowHeight - 90.f));
-        player.setOnGround(true);
-        
-        // Only reset velocity if player is not jumping
-        if (player.getVelocity().y >= 0) {
-            playerPhysics.velocity.y = 0;
-        }
     }
     
     // Add a check to prevent player from sinking into ground
