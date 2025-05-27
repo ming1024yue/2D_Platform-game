@@ -130,9 +130,6 @@ void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& 
     // Copy player's velocity to physics system to ensure jumps are processed
     playerPhysics.velocity = player.getVelocity();
     
-    // Apply gravity to player if not on ground and not on ladder
-    bool isOnLadder = player.isOnLadder();
-    
     // Check ground state first, but be more lenient during jumps
     bool playerOnGround = false;
     if (!player.isJumping() || playerPhysics.velocity.y > 0) {
@@ -145,7 +142,7 @@ void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& 
         player.setOnGround(playerOnGround);
     }
     
-    if (playerPhysics.hasGravity && !playerOnGround && !isOnLadder) {
+    if (playerPhysics.hasGravity && !playerOnGround) {
         // Apply gravity
         playerPhysics.velocity.y += gravity * deltaTime;
         
@@ -236,37 +233,34 @@ bool PhysicsSystem::isEntityOnGround(const PhysicsComponent& entityPhysics, cons
 }
 
 void PhysicsSystem::resolveCollisions(Player& player, std::vector<Enemy>& enemies) {
-    // Skip platform collisions when on ladder
-    if (!player.isOnLadder()) {
-        // Check player collision with platforms
-        for (size_t i = 0; i < platformPhysics.size(); i++) {
-            const auto& platform = platformPhysics[i];
+    // Check player collision with platforms
+    for (size_t i = 0; i < platformPhysics.size(); i++) {
+        const auto& platform = platformPhysics[i];
+        
+        if (checkCollision(playerPhysics, platform)) {
+            // Get previous position (before applying velocity)
+            sf::Vector2f prevPos = sf::Vector2f(
+                player.getPosition().x - player.getVelocity().x,
+                player.getPosition().y - player.getVelocity().y
+            );
             
-            if (checkCollision(playerPhysics, platform)) {
-                // Get previous position (before applying velocity)
-                sf::Vector2f prevPos = sf::Vector2f(
-                    player.getPosition().x - player.getVelocity().x,
-                    player.getPosition().y - player.getVelocity().y
-                );
+            // Handle collision with platform
+            if (playerPhysics.velocity.y > 0 && 
+                prevPos.y + playerPhysics.collisionBox.size.y <= platform.collisionBox.position.y + 5) {
+                // Player is falling - land on platform
+                playerPhysics.velocity.y = 0;
+                player.setOnGround(true);
+                player.setJumping(false); // Reset jump state when landing
                 
-                // Handle collision with platform
-                if (playerPhysics.velocity.y > 0 && 
-                    prevPos.y + playerPhysics.collisionBox.size.y <= platform.collisionBox.position.y + 5) {
-                    // Player is falling - land on platform
-                    playerPhysics.velocity.y = 0;
-                    player.setOnGround(true);
-                    player.setJumping(false); // Reset jump state when landing
-                    
-                    // Position player on top of platform with a small offset to prevent sinking
-                    float newY = platform.collisionBox.position.y - playerPhysics.collisionBox.size.y - 0.1f;
-                    player.setPosition(sf::Vector2f(player.getPosition().x, newY));
-                    
-                    // Apply platform friction to horizontal velocity
-                    playerPhysics.velocity.x *= (1.0f - platform.friction);
-                } else if (playerPhysics.velocity.y < 0 && !useOneWayPlatforms) {
-                    // Player is jumping - hit bottom of platform
-                    playerPhysics.velocity.y = -playerPhysics.velocity.y * playerPhysics.bounceFactor;
-                }
+                // Position player on top of platform with a small offset to prevent sinking
+                float newY = platform.collisionBox.position.y - playerPhysics.collisionBox.size.y - 0.1f;
+                player.setPosition(sf::Vector2f(player.getPosition().x, newY));
+                
+                // Apply platform friction to horizontal velocity
+                playerPhysics.velocity.x *= (1.0f - platform.friction);
+            } else if (playerPhysics.velocity.y < 0 && !useOneWayPlatforms) {
+                // Player is jumping - hit bottom of platform
+                playerPhysics.velocity.y = -playerPhysics.velocity.y * playerPhysics.bounceFactor;
             }
         }
     }
