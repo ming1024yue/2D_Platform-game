@@ -10,7 +10,7 @@
 class Player;
 class Enemy;
 class PhysicsSystem;
-class LightingSystem;
+
 
 struct BackgroundLayer {
     std::string name;
@@ -61,6 +61,7 @@ public:
     void renderBackground();
     void renderBackgroundLayers();
     void setBackgroundLayers(std::vector<BackgroundLayer>&& layers);
+    void setBackgroundLayersRef(const std::vector<BackgroundLayer>& layers);
     
     // Game object rendering
     void renderPlatforms(const std::vector<sf::RectangleShape>& platforms);
@@ -77,8 +78,7 @@ public:
     void renderFPS();
     void renderMiniMap();
     
-    // Lighting rendering
-    void renderLighting();
+
     
     // Logging controls
     void setLoggingEnabled(bool enabled) { loggingEnabled = enabled; }
@@ -89,7 +89,7 @@ public:
     void setShowBoundingBoxes(bool show) { showBoundingBoxes = show; }
     void setShowDebugGrid(bool show) { showDebugGrid = show; }
     void setShowMiniMap(bool show) { showMiniMap = show; }
-    void setShowLighting(bool show) { showLighting = show; }
+
     void setShowEnemies(bool show) { showEnemies = show; }
     void setSpriteScale(float scale) { spriteScale = scale; }
     void setGridSize(float size) { gridSize = size; }
@@ -101,7 +101,7 @@ public:
     bool getShowBoundingBoxes() const { return showBoundingBoxes; }
     bool getShowDebugGrid() const { return showDebugGrid; }
     bool getShowMiniMap() const { return showMiniMap; }
-    bool getShowLighting() const { return showLighting; }
+
     bool getShowEnemies() const { return showEnemies; }
     float getSpriteScale() const { return spriteScale; }
     float getGridSize() const { return gridSize; }
@@ -176,7 +176,7 @@ private:
     bool showBoundingBoxes = true;
     bool showDebugGrid = false;
     bool showMiniMap = true;
-    bool showLighting = true;
+
     bool showEnemies = true;
     float spriteScale = 4.0f;
     
@@ -205,6 +205,11 @@ private:
     // Batch rendering
     std::vector<std::pair<sf::Sprite, sf::Vector2f>> spriteBatch;
     bool batchMode = false;
+    
+    // Constants for background rendering (moved from Game class)
+    static constexpr int WINDOW_WIDTH = 800;
+    static constexpr int WINDOW_HEIGHT = 600;
+    static constexpr float GROUND_HEIGHT = 60.f;
     
     // Helper methods
     void renderSpriteWithDirection(const sf::Sprite& sprite, const sf::Vector2f& position, bool facingLeft = false);

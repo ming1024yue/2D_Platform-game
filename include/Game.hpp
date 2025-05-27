@@ -6,7 +6,7 @@
 #include <fstream>
 #include "Player.hpp"
 #include "Enemy.hpp"
-#include "LightingSystem.hpp"
+
 #include "AssetManager.hpp"
 #include "Physics.hpp"
 #include "RenderingSystem.hpp"
@@ -46,11 +46,9 @@ private:
     void initializePlatforms();
     void initializeLadders();
     void initializeEnemies();
-    void initializeLights();
     void initializeUI();
     void initializeMiniMap();
     void updateMiniMap();
-    void updateLights();
     void syncPlatformsWithPhysics();
     void checkPlayerEnemyCollision();
     void updateUI();
@@ -66,7 +64,6 @@ private:
     // Background layer methods
     void initializeBackgroundLayers();
     void loadBackgroundLayers();
-    void drawBackgroundLayers();
     
     // Level-specific layouts (removed for puzzle-focused gameplay)
     
@@ -119,10 +116,7 @@ private:
     float transitionTimer;
     sf::Text levelText;
     
-    // Lighting system
-    LightingSystem lightingSystem;
-    int playerLightIndex; // Index of the player's light
-    bool showLighting; // Flag to toggle lighting visibility
+
     
     // Physics system
     PhysicsSystem physicsSystem;

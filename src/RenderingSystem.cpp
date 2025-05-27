@@ -69,10 +69,7 @@ void RenderingSystem::renderFrame() {
         renderDebugBoxes();
     }
     
-    // Render lighting if enabled
-    if (showLighting) {
-        renderLighting();
-    }
+
     
     // Render UI elements
     renderUI();
@@ -101,19 +98,131 @@ void RenderingSystem::renderBackground() {
 void RenderingSystem::renderBackgroundLayers() {
     if (!renderTarget) return;
     
+    // Get the current view from the render target
+    sf::View currentView = renderTarget->getView();
+    sf::Vector2f viewCenter = currentView.getCenter();
+    sf::Vector2f viewSize = currentView.getSize();
+    
+    // Calculate the visible area
+    float leftX = viewCenter.x - viewSize.x / 2.0f;
+    float rightX = viewCenter.x + viewSize.x / 2.0f;
+    float topY = viewCenter.y - viewSize.y / 2.0f;
+    float bottomY = viewCenter.y + viewSize.y / 2.0f;
+    
     int layersRendered = 0;
+    
+    // Draw layers from back to front (background1 -> background2 -> background3 -> background4)
     for (auto& layer : backgroundLayers) {
-        if (layer.isLoaded && layer.sprite) {
-            renderTarget->draw(*layer.sprite);
-            layersRendered++;
+        if (!layer.isLoaded || !layer.sprite) continue;
+        
+        // Calculate parallax offset
+        // For parallax, we want layers to move slower than the camera
+        // A speed of 0.0 means static (no movement), 1.0 means moves with camera
+        float parallaxOffsetX = (viewCenter.x - WINDOW_WIDTH / 2.0f) * layer.parallaxSpeed;
+        float parallaxOffsetY = (viewCenter.y - WINDOW_HEIGHT / 2.0f) * layer.parallaxSpeed;
+        
+        // Calculate uniform scale to maintain aspect ratio
+        float scaleX = viewSize.x / layer.textureSize.x;
+        float scaleY = viewSize.y / layer.textureSize.y;
+        
+        // Choose scaling strategy based on layer type
+        float uniformScale;
+        if (layer.name == "background1") {
+            // Background1 should completely fill the screen
+            uniformScale = std::max(scaleX, scaleY);
+        } else {
+            // Other layers can use different strategies
+            uniformScale = std::max(scaleX, scaleY); // Fill screen completely
         }
+        
+        // Apply uniform scaling
+        layer.sprite->setScale(sf::Vector2f(uniformScale, uniformScale));
+        
+        // Calculate scaled texture dimensions
+        float scaledWidth = layer.textureSize.x * uniformScale;
+        float scaledHeight = layer.textureSize.y * uniformScale;
+        
+        if (layer.tileHorizontally) {
+            // Calculate starting positions for tiling
+            float startX = std::floor((leftX + parallaxOffsetX) / scaledWidth) * scaledWidth - parallaxOffsetX;
+            float startY;
+            
+            // Special positioning for background4 layer to align with actual ground platforms
+            if (layer.name == "background4") {
+                // Position background4 layer to align with the actual ground platforms
+                // The ground platforms are positioned at WINDOW_HEIGHT - GROUND_HEIGHT (y=540)
+                float groundLevel = WINDOW_HEIGHT - GROUND_HEIGHT; // This is where the platforms are (y=540)
+                
+                // Position the background4 texture to cover the ground platforms area
+                // We want the background4 texture to be positioned so it covers the platform area
+                // The platforms are 60px high starting at y=540, so we need to cover y=540 to y=600
+                startY = groundLevel - (scaledHeight * 0.8f); // Start 80% of texture height above ground level to ensure coverage
+                
+                // Apply parallax effect for background4 layer (it should move with camera)
+                startY += parallaxOffsetY;
+            } else {
+                // Normal positioning for other layers
+                startY = layer.tileVertically ? 
+                        std::floor((topY + parallaxOffsetY) / scaledHeight) * scaledHeight - parallaxOffsetY :
+                        topY + parallaxOffsetY;
+            }
+            
+            // Draw tiles
+            if (layer.tileVertically) {
+                // Tile both horizontally and vertically
+                for (float y = startY; y < bottomY + scaledHeight; y += scaledHeight) {
+                    for (float x = startX; x < rightX + scaledWidth; x += scaledWidth) {
+                        layer.sprite->setPosition(sf::Vector2f(x, y));
+                        renderTarget->draw(*layer.sprite);
+                    }
+                }
+            } else {
+                // Tile only horizontally
+                for (float x = startX; x < rightX + scaledWidth; x += scaledWidth) {
+                    layer.sprite->setPosition(sf::Vector2f(x, startY));
+                    renderTarget->draw(*layer.sprite);
+                }
+            }
+        } else {
+            // Single image, positioned with parallax
+            layer.sprite->setPosition(sf::Vector2f(
+                leftX + parallaxOffsetX,
+                topY + parallaxOffsetY
+            ));
+            renderTarget->draw(*layer.sprite);
+        }
+        
+        layersRendered++;
     }
-    logDebug("Rendered " + std::to_string(layersRendered) + " background layers");
+    
+    logDebug("Rendered " + std::to_string(layersRendered) + " background layers with parallax");
 }
 
 void RenderingSystem::setBackgroundLayers(std::vector<BackgroundLayer>&& layers) {
     backgroundLayers = std::move(layers);
     logInfo("Background layers updated, count: " + std::to_string(backgroundLayers.size()));
+}
+
+void RenderingSystem::setBackgroundLayersRef(const std::vector<BackgroundLayer>& layers) {
+    // Clear existing layers
+    backgroundLayers.clear();
+    
+    // Copy the layers (note: this creates new BackgroundLayer objects)
+    for (const auto& layer : layers) {
+        // Create a new layer with the same properties
+        BackgroundLayer newLayer(layer.name, layer.parallaxSpeed, layer.tileHorizontally, layer.tileVertically);
+        newLayer.isLoaded = layer.isLoaded;
+        newLayer.textureSize = layer.textureSize;
+        
+        // Copy the sprite if it exists
+        if (layer.sprite && layer.isLoaded) {
+            newLayer.sprite = std::make_unique<sf::Sprite>(*layer.sprite);
+        }
+        
+        backgroundLayers.push_back(std::move(newLayer));
+    }
+    
+    logInfo("Background layers copied from reference, count: " + std::to_string(backgroundLayers.size()));
 }
 
 void RenderingSystem::renderPlatforms(const std::vector<sf::RectangleShape>& platforms) {
@@ -288,11 +397,7 @@ void RenderingSystem::renderMiniMap() {
     logDebug("Mini-map rendering called");
 }
 
-void RenderingSystem::renderLighting() {
-    // Stub for lighting rendering
-    // This would apply lighting effects
-    logDebug("Lighting rendering called");
-}
+
 
 void RenderingSystem::setPlayerSprite(std::unique_ptr<sf::Sprite> sprite) {
     playerSprite = std::move(sprite);

@@ -26,9 +26,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                gameOverText(defaultFont, sf::String("GAME OVER"), 48),
                restartText(defaultFont, sf::String("Press ENTER to restart"), 24),
                fpsText(defaultFont, sf::String("FPS: 0"), 16),
-               playerLightIndex(0),
                showMiniMap(true),
-               showLighting(true),
                currentLevel(1),
                transitionTimer(0.f),
                levelText(defaultFont, sf::String("Level 1"), 36),
@@ -68,10 +66,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                
     window.setFramerateLimit(FPS);
     
-    // Initialize lighting system
-    sf::Color ambientColor(30, 30, 40, 200); // Dark blue-ish ambient light
-    lightingSystem.initialize(WINDOW_WIDTH, WINDOW_HEIGHT, ambientColor);
-    lightingSystem.setEnabled(false); // Lighting system off by default
+
     
     // Initialize view for scrolling
     gameView.setSize(sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
@@ -106,7 +101,6 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
-    initializeLights();
     
     // Initialize ImGui
     initializeImGui();
@@ -177,8 +171,7 @@ void Game::update() {
         // Check if level is complete
         checkLevelCompletion();
         
-        // Update lighting effects
-        updateLights();
+
         
         // Update UI
         updateUI();
@@ -597,7 +590,6 @@ void Game::resetGame() {
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
-    initializeLights();
     
     // Initialize physics system
     physicsSystem.initialize();
@@ -668,70 +660,9 @@ void Game::updateMiniMap() {
     }
 }
 
-void Game::initializeLights() {
-    lightingSystem.clearLights();
-    
-    // Add player light (follows the player)
-    sf::Vector2f playerPos = player.getPosition();
-    playerLightIndex = 0; // First light is the player's light
-    lightingSystem.addLight(
-        sf::Vector2f(playerPos.x + player.getSize().x / 2.f, playerPos.y + player.getSize().y / 2.f),
-        150.0f,                    // Radius
-        sf::Color(255, 220, 150),  // Warm light color
-        0.8f                       // Intensity
-    );
-    
-    // Add some static lights around the level
-    
-    // Light near the first ladder
-    lightingSystem.addLight(
-        sf::Vector2f(580.f, WINDOW_HEIGHT - 200.f),
-        180.0f,                    // Radius
-        sf::Color(150, 220, 255),  // Blueish light
-        0.7f                       // Intensity
-    );
-    
-    // Light on platform 3 (highest initial platform)
-    lightingSystem.addLight(
-        sf::Vector2f(600.f, 180.f),
-        160.0f,                    // Radius
-        sf::Color(255, 170, 100),  // Orange-ish light
-        0.75f                      // Intensity
-    );
-    
-    // Light on platform 5 in scrolling area
-    lightingSystem.addLight(
-        sf::Vector2f(1300.f, 230.f),
-        170.0f,                    // Radius
-        sf::Color(150, 255, 150),  // Green-ish light
-        0.7f                       // Intensity
-    );
-    
-    // Light on platform 8 in scrolling area
-    lightingSystem.addLight(
-        sf::Vector2f(2200.f, 180.f),
-        170.0f,                    // Radius
-        sf::Color(255, 150, 220),  // Pink-ish light
-        0.7f                       // Intensity
-    );
-    
-    // Light on final platform
-    lightingSystem.addLight(
-        sf::Vector2f(2850.f, 230.f),
-        190.0f,                    // Radius
-        sf::Color(255, 255, 150),  // Yellow-ish light
-        0.8f                       // Intensity
-    );
-}
 
-void Game::updateLights() {
-    // Update player light position to follow player
-    sf::Vector2f playerCenter(
-        player.getPosition().x + player.getSize().x / 2.f,
-        player.getPosition().y + player.getSize().y / 2.f
-    );
-    lightingSystem.updateLight(playerLightIndex, playerCenter);
-}
+
+
 
 void Game::updateFPS() {
     // Increment frame counter
@@ -983,7 +914,6 @@ void Game::nextLevel() {
     initializeLadders();
     initializeEnemies();
     initializeMiniMap();
-    initializeLights();
     
     // For higher levels, increase difficulty and add level-specific features
     if (currentLevel > 1) {
@@ -1022,7 +952,7 @@ void Game::updateImGui() {
             if (ImGui::BeginTabBar("SettingsTabs")) {
                 // Graphics tab
                 if (ImGui::BeginTabItem("Graphics")) {
-                    ImGui::Checkbox("Show Lighting", &showLighting);
+
                     ImGui::Checkbox("Show Bounding Boxes", &showBoundingBoxes);
                     ImGui::Checkbox("Show Mini-map", &showMiniMap);
                     
@@ -1953,7 +1883,6 @@ void Game::jumpToLevel(int level) {
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
-    initializeLights();
     
     // Apply level-specific physics and difficulty
     if (currentLevel > 1) {
@@ -2078,101 +2007,13 @@ void Game::loadBackgroundLayers() {
     } else {
         logWarning("No background layers loaded, using placeholder");
     }
+    
+    // Pass the background layers to the rendering system
+    renderingSystem.setBackgroundLayersRef(backgroundLayers);
+    renderingSystem.setUseBackgroundPlaceholder(useBackgroundPlaceholder);
 }
 
-// Draw all background layers with parallax effect
-void Game::drawBackgroundLayers() {
-    sf::Vector2f viewCenter = gameView.getCenter();
-    sf::Vector2f viewSize = gameView.getSize();
-    
-    // Calculate the visible area
-    float leftX = viewCenter.x - viewSize.x / 2.0f;
-    float rightX = viewCenter.x + viewSize.x / 2.0f;
-    float topY = viewCenter.y - viewSize.y / 2.0f;
-    float bottomY = viewCenter.y + viewSize.y / 2.0f;
-    
-    // Draw layers from back to front (background1 -> background2 -> background3 -> background4)
-    for (auto& layer : backgroundLayers) {
-        if (!layer.isLoaded || !layer.sprite) continue;
-        
-        // Calculate parallax offset
-        // For parallax, we want layers to move slower than the camera
-        // A speed of 0.0 means static (no movement), 1.0 means moves with camera
-        float parallaxOffsetX = (viewCenter.x - WINDOW_WIDTH / 2.0f) * layer.parallaxSpeed;
-        float parallaxOffsetY = (viewCenter.y - WINDOW_HEIGHT / 2.0f) * layer.parallaxSpeed;
-        
-        // Calculate uniform scale to maintain aspect ratio
-        float scaleX = viewSize.x / layer.textureSize.x;
-        float scaleY = viewSize.y / layer.textureSize.y;
-        
-        // Choose scaling strategy based on layer type
-        float uniformScale;
-        if (layer.name == "background1") {
-            // Background1 should completely fill the screen
-            uniformScale = std::max(scaleX, scaleY);
-        } else {
-            // Other layers can use different strategies
-            uniformScale = std::max(scaleX, scaleY); // Fill screen completely
-        }
-        
-        // Apply uniform scaling
-        layer.sprite->setScale(sf::Vector2f(uniformScale, uniformScale));
-        
-        // Calculate scaled texture dimensions
-        float scaledWidth = layer.textureSize.x * uniformScale;
-        float scaledHeight = layer.textureSize.y * uniformScale;
-        
-        if (layer.tileHorizontally) {
-            // Calculate starting positions for tiling
-            float startX = std::floor((leftX + parallaxOffsetX) / scaledWidth) * scaledWidth - parallaxOffsetX;
-            float startY;
-            
-            // Special positioning for background4 layer to align with actual ground platforms
-            if (layer.name == "background4") {
-                // Position background4 layer to align with the actual ground platforms
-                // The ground platforms are positioned at WINDOW_HEIGHT - GROUND_HEIGHT (y=540)
-                float groundLevel = WINDOW_HEIGHT - GROUND_HEIGHT; // This is where the platforms are (y=540)
-                
-                // Position the background4 texture to cover the ground platforms area
-                // We want the background4 texture to be positioned so it covers the platform area
-                // The platforms are 60px high starting at y=540, so we need to cover y=540 to y=600
-                startY = groundLevel - (scaledHeight * 0.8f); // Start 80% of texture height above ground level to ensure coverage
-                
-                // Apply parallax effect for background4 layer (it should move with camera)
-                startY += parallaxOffsetY;
-            } else {
-                // Normal positioning for other layers
-                startY = layer.tileVertically ? 
-                        std::floor((topY + parallaxOffsetY) / scaledHeight) * scaledHeight - parallaxOffsetY :
-                        topY + parallaxOffsetY;
-            }
-            
-            // Draw tiles
-            if (layer.tileVertically) {
-                // Tile both horizontally and vertically
-                for (float y = startY; y < bottomY + scaledHeight; y += scaledHeight) {
-                    for (float x = startX; x < rightX + scaledWidth; x += scaledWidth) {
-                        layer.sprite->setPosition(sf::Vector2f(x, y));
-                        window.draw(*layer.sprite);
-                    }
-                }
-            } else {
-                // Tile only horizontally
-                for (float x = startX; x < rightX + scaledWidth; x += scaledWidth) {
-                    layer.sprite->setPosition(sf::Vector2f(x, startY));
-                    window.draw(*layer.sprite);
-                }
-            }
-        } else {
-            // Single image, positioned with parallax
-            layer.sprite->setPosition(sf::Vector2f(
-                leftX + parallaxOffsetX,
-                topY + parallaxOffsetY
-            ));
-            window.draw(*layer.sprite);
-        }
-    }
-}
+
 
 // Logging methods implementation
 void Game::logDebug(const std::string& message) {

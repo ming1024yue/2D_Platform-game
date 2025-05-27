@@ -94,10 +94,7 @@ void Game::handleEvents() {
                 showMiniMap = !showMiniMap;
             }
             
-            // Toggle lighting with L key
-            if (key->code == sf::Keyboard::Key::L) {
-                showLighting = !showLighting;
-            }
+
             
             // Toggle debug grid with G key
             if (key->code == sf::Keyboard::Key::G) {
@@ -138,8 +135,9 @@ void Game::draw() {
         // Draw the green rectangle placeholder
         window.draw(backgroundPlaceholder);
     } else {
-        // Draw all background layers with parallax effect
-        drawBackgroundLayers();
+        // Draw all background layers with parallax effect using rendering system
+        renderingSystem.setRenderTarget(&window);
+        renderingSystem.renderBackgroundLayers();
     }
     
     // Draw debug grid for canonical coordinates
@@ -364,10 +362,7 @@ void Game::draw() {
         window.draw(directionIndicator);
     }
     
-    // Draw lighting effects on top of everything if enabled
-    if (showLighting && lightingSystem.isEnabled()) {
-        lightingSystem.draw(window, gameView);
-    }
+
     
     // Switch to UI view for UI elements
     window.setView(uiView);

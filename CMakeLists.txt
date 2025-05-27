@@ -31,7 +31,7 @@ set(GAME_SOURCES
     src/GameImGui.cpp
     src/Player.cpp
     src/Enemy.cpp
-    src/LightingSystem.cpp
+
     src/AssetManager.cpp
     src/Physics.cpp
     src/RenderingSystem.cpp
