@@ -125,14 +125,7 @@ void RenderingSystem::renderPlatforms(const std::vector<sf::RectangleShape>& pla
     logDebug("Rendered " + std::to_string(platforms.size()) + " platforms");
 }
 
-void RenderingSystem::renderLadders(const std::vector<sf::RectangleShape>& ladders) {
-    if (!renderTarget) return;
-    
-    for (const auto& ladder : ladders) {
-        renderTarget->draw(ladder);
-    }
-    logDebug("Rendered " + std::to_string(ladders.size()) + " ladders");
-}
+
 
 void RenderingSystem::renderPlayer(const Player& player) {
     if (!renderTarget) return;
@@ -180,9 +173,95 @@ void RenderingSystem::renderEnemies(const std::vector<Enemy>& enemies) {
 }
 
 void RenderingSystem::renderDebugGrid() {
-    // Stub for debug grid rendering
-    // This would implement the grid drawing logic
-    logDebug("Debug grid rendering called (grid size: " + std::to_string(gridSize) + ")");
+    if (!renderTarget) {
+        logError("No render target set for renderDebugGrid()");
+        return;
+    }
+    
+    if (!showDebugGrid) {
+        logDebug("Debug grid rendering skipped (showDebugGrid = false)");
+        return;
+    }
+    
+    // Get the current view from the render target
+    sf::View currentView = renderTarget->getView();
+    sf::Vector2f viewCenter = currentView.getCenter();
+    sf::Vector2f viewSize = currentView.getSize();
+    
+    float leftX = viewCenter.x - viewSize.x / 2.0f;
+    float rightX = viewCenter.x + viewSize.x / 2.0f;
+    float topY = viewCenter.y - viewSize.y / 2.0f;
+    float bottomY = viewCenter.y + viewSize.y / 2.0f;
+    
+    // Calculate grid line start and end positions
+    int startGridX = static_cast<int>(std::floor(leftX / gridSize));
+    int endGridX = static_cast<int>(std::ceil(rightX / gridSize));
+    int startGridY = static_cast<int>(std::floor(topY / gridSize));
+    int endGridY = static_cast<int>(std::ceil(bottomY / gridSize));
+    
+    // Create vertex arrays for efficient rendering
+    sf::VertexArray gridLines(sf::PrimitiveType::Lines);
+    sf::VertexArray axisLines(sf::PrimitiveType::Lines);
+    sf::VertexArray originLines(sf::PrimitiveType::Lines);
+    
+    // Draw vertical grid lines
+    for (int x = startGridX; x <= endGridX; x++) {
+        float worldX = x * gridSize;
+        if (worldX >= leftX && worldX <= rightX) {
+            sf::Color lineColor = gridColor;
+            
+            // Use axis color for major axes (every 10th line or at coordinate 0)
+            if (x == 0) {
+                // This is the Y-axis (x=0)
+                originLines.append(sf::Vertex{{worldX, topY}, gridOriginColor});
+                originLines.append(sf::Vertex{{worldX, bottomY}, gridOriginColor});
+            } else if (x % 10 == 0) {
+                // Major grid line
+                axisLines.append(sf::Vertex{{worldX, topY}, gridAxesColor});
+                axisLines.append(sf::Vertex{{worldX, bottomY}, gridAxesColor});
+            } else {
+                // Regular grid line
+                gridLines.append(sf::Vertex{{worldX, topY}, lineColor});
+                gridLines.append(sf::Vertex{{worldX, bottomY}, lineColor});
+            }
+        }
+    }
+    
+    // Draw horizontal grid lines
+    for (int y = startGridY; y <= endGridY; y++) {
+        float worldY = y * gridSize;
+        if (worldY >= topY && worldY <= bottomY) {
+            sf::Color lineColor = gridColor;
+            
+            // Use axis color for major axes (every 10th line or at coordinate 0)
+            if (y == 0) {
+                // This is the X-axis (y=0)
+                originLines.append(sf::Vertex{{leftX, worldY}, gridOriginColor});
+                originLines.append(sf::Vertex{{rightX, worldY}, gridOriginColor});
+            } else if (y % 10 == 0) {
+                // Major grid line  
+                axisLines.append(sf::Vertex{{leftX, worldY}, gridAxesColor});
+                axisLines.append(sf::Vertex{{rightX, worldY}, gridAxesColor});
+            } else {
+                // Regular grid line
+                gridLines.append(sf::Vertex{{leftX, worldY}, lineColor});
+                gridLines.append(sf::Vertex{{rightX, worldY}, lineColor});
+            }
+        }
+    }
+    
+    // Draw the grid (in order: grid, major axes, then origin)
+    if (gridLines.getVertexCount() > 0) {
+        renderTarget->draw(gridLines);
+    }
+    if (axisLines.getVertexCount() > 0) {
+        renderTarget->draw(axisLines);
+    }
+    if (originLines.getVertexCount() > 0) {
+        renderTarget->draw(originLines);
+    }
+    
+    logDebug("Debug grid rendered with " + std::to_string(gridLines.getVertexCount() + axisLines.getVertexCount() + originLines.getVertexCount()) + " vertices");
 }
 
 void RenderingSystem::renderDebugBoxes() {

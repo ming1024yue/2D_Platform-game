@@ -64,7 +64,7 @@ public:
     
     // Game object rendering
     void renderPlatforms(const std::vector<sf::RectangleShape>& platforms);
-    void renderLadders(const std::vector<sf::RectangleShape>& ladders);
+
     void renderPlayer(const Player& player);
     void renderEnemies(const std::vector<Enemy>& enemies);
     
@@ -94,6 +94,8 @@ public:
     void setSpriteScale(float scale) { spriteScale = scale; }
     void setGridSize(float size) { gridSize = size; }
     void setGridColor(const sf::Color& color) { gridColor = color; }
+    void setGridOriginColor(const sf::Color& color) { gridOriginColor = color; }
+    void setGridAxesColor(const sf::Color& color) { gridAxesColor = color; }
     
     // Getters
     bool getShowBoundingBoxes() const { return showBoundingBoxes; }
@@ -104,6 +106,8 @@ public:
     float getSpriteScale() const { return spriteScale; }
     float getGridSize() const { return gridSize; }
     const sf::Color& getGridColor() const { return gridColor; }
+    const sf::Color& getGridOriginColor() const { return gridOriginColor; }
+    const sf::Color& getGridAxesColor() const { return gridAxesColor; }
     
     // Sprite management
     void setPlayerSprite(std::unique_ptr<sf::Sprite> sprite);

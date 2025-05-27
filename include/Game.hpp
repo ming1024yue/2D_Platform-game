@@ -61,7 +61,7 @@ private:
     void checkLevelCompletion();
     void loadAssets();
     void drawDebugBoxes();
-    void drawDebugGrid();  // New method for drawing the canonical coordinate grid
+
     
     // Background layer methods
     void initializeBackgroundLayers();

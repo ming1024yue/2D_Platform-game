@@ -102,6 +102,7 @@ void Game::handleEvents() {
             // Toggle debug grid with G key
             if (key->code == sf::Keyboard::Key::G) {
                 showDebugGrid = !showDebugGrid;
+                renderingSystem.setShowDebugGrid(showDebugGrid);
                 logDebug("Debug grid " + std::string(showDebugGrid ? "enabled" : "disabled"));
             }
             
@@ -142,7 +143,8 @@ void Game::draw() {
     }
     
     // Draw debug grid for canonical coordinates
-    drawDebugGrid();
+    renderingSystem.setRenderTarget(&window);
+    renderingSystem.renderDebugGrid();
     
     // Draw platforms using rendering system
     if (renderingSystem.isLoaded()) {
