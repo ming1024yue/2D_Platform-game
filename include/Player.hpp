@@ -1,6 +1,7 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include "Animation.hpp"
 
 // Forward declaration to avoid circular includes
 class PhysicsSystem;
@@ -41,6 +42,12 @@ public:
     
     // Reset player to initial state
     void reset(float x, float y);
+    
+    // Animation methods
+    void initializeAnimations();
+    void updateAnimation(float deltaTime);
+    const sf::Sprite& getAnimatedSprite() const;
+    bool hasAnimations() const;
 
 private:
     sf::Vector2f position;           // Player's position in the world
@@ -58,6 +65,10 @@ private:
     
     // Reference to physics system
     PhysicsSystem& physicsSystem;
+    
+    // Animation system
+    Animation playerAnimation;
+    bool animationsLoaded;
     
     static constexpr float PLAYER_SPEED = 300.0f;
     static constexpr float CLIMB_SPEED = 3.0f;

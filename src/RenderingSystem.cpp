@@ -239,21 +239,50 @@ void RenderingSystem::renderPlatforms(const std::vector<sf::RectangleShape>& pla
 void RenderingSystem::renderPlayer(const Player& player) {
     if (!renderTarget) return;
     
-    if (usePlayerPlaceholder) {
+    // Check if player has animations loaded
+    if (player.hasAnimations()) {
+        // Use the player's animated sprite
+        sf::Sprite animatedSprite = player.getAnimatedSprite();
+        
+        // Position the sprite at the player's position
+        animatedSprite.setPosition(player.getPosition());
+        
+        // Handle sprite flipping for direction
+        if (player.isFacingLeft()) {
+            // Flip the sprite horizontally
+            sf::Vector2f scale = animatedSprite.getScale();
+            animatedSprite.setScale(sf::Vector2f(-std::abs(scale.x), scale.y));
+            // Adjust position to account for flipping
+            sf::Vector2f playerSize = player.getSize();
+            animatedSprite.setPosition(sf::Vector2f(player.getPosition().x + playerSize.x, player.getPosition().y));
+        } else {
+            // Ensure sprite is not flipped
+            sf::Vector2f scale = animatedSprite.getScale();
+            animatedSprite.setScale(sf::Vector2f(std::abs(scale.x), scale.y));
+            animatedSprite.setPosition(player.getPosition());
+        }
+        
+        renderTarget->draw(animatedSprite);
+        logDebug("Rendered player animated sprite at position (" + 
+                std::to_string(player.getPosition().x) + ", " + 
+                std::to_string(player.getPosition().y) + ")");
+    } else if (usePlayerPlaceholder) {
+        // Fallback to placeholder
         playerPlaceholder.setPosition(player.getPosition());
         renderTarget->draw(playerPlaceholder);
         logDebug("Rendered player placeholder at position (" + 
                 std::to_string(player.getPosition().x) + ", " + 
                 std::to_string(player.getPosition().y) + ")");
     } else if (playerSprite) {
+        // Fallback to static sprite
         playerSprite->setPosition(player.getPosition());
         playerSprite->setScale(sf::Vector2f(spriteScale, spriteScale));
         renderTarget->draw(*playerSprite);
-        logDebug("Rendered player sprite at position (" + 
+        logDebug("Rendered player static sprite at position (" + 
                 std::to_string(player.getPosition().x) + ", " + 
                 std::to_string(player.getPosition().y) + ")");
     } else {
-        logWarning("Player rendering failed: no sprite or placeholder available");
+        logWarning("Player rendering failed: no animations, sprite, or placeholder available");
     }
 }
 

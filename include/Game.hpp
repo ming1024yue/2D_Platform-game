@@ -187,7 +187,7 @@ private:
     static constexpr int FPS = 60;
     static constexpr float HIT_COOLDOWN = 1.5f; // 1.5 seconds invulnerability
     static constexpr float LEVEL_TRANSITION_DURATION = 2.0f; // Duration of level transition in seconds
-    static constexpr float GROUND_HEIGHT = 60.f; // Height of the ground platform from bottom of screen
+    static constexpr float GROUND_HEIGHT = 40.f; // Height of the ground platform from bottom of screen
     
     // Mini-map constants
     static constexpr int MINI_MAP_WIDTH = 200;

@@ -268,7 +268,31 @@ void Game::draw() {
     }
     
     // Draw player
-    if (!usePlayerPlaceholder && playerSprite) {
+    if (player.hasAnimations()) {
+        // Use the player's animation system
+        sf::Sprite animatedSprite = player.getAnimatedSprite();
+        
+        // Position the sprite at the player's position
+        animatedSprite.setPosition(player.getPosition());
+        
+        // Handle sprite flipping for direction
+        if (player.isFacingLeft()) {
+            // Flip the sprite horizontally
+            sf::Vector2f scale = animatedSprite.getScale();
+            animatedSprite.setScale(sf::Vector2f(-std::abs(scale.x), scale.y));
+            // Adjust position to account for flipping
+            sf::Vector2f playerSize = player.getSize();
+            animatedSprite.setPosition(sf::Vector2f(player.getPosition().x + playerSize.x, player.getPosition().y));
+        } else {
+            // Ensure sprite is not flipped
+            sf::Vector2f scale = animatedSprite.getScale();
+            animatedSprite.setScale(sf::Vector2f(std::abs(scale.x), scale.y));
+            animatedSprite.setPosition(player.getPosition());
+        }
+        
+        window.draw(animatedSprite);
+    } else if (!usePlayerPlaceholder && playerSprite) {
+        // Fallback to static sprite if animations aren't loaded
         // Position and scale the sprite to match the player shape
         sf::FloatRect bounds = player.getGlobalBounds();
         

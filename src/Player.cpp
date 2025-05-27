@@ -10,7 +10,7 @@ static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
            a.position.y + a.size.y > b.position.y;
 }
 
-Player::Player(float x, float y, PhysicsSystem& physics) : physicsSystem(physics) {
+Player::Player(float x, float y, PhysicsSystem& physics) : physicsSystem(physics), animationsLoaded(false) {
     position = sf::Vector2f(x, y);
     collisionOffset = sf::Vector2f(0.f, 0.f);
     
@@ -29,7 +29,8 @@ Player::Player(float x, float y, PhysicsSystem& physics) : physicsSystem(physics
     maxHealth = 3; // 3 lives
     health = maxHealth;
     
-
+    // Initialize animations
+    initializeAnimations();
 }
 
 void Player::setPosition(const sf::Vector2f& pos) {
@@ -139,12 +140,14 @@ void Player::update(float deltaTime,const std::vector<sf::RectangleShape>& platf
     // Process input before movement
     handleInput();
     
-    // Apply gravity only when not on ladder and not being handled by physics system
+    // Apply gravity only when not on ladder and not on ground
     if (!onLadder && !onGround) {
-        // Use a reduced gravity when physics system is active
-    
         velocity.y += GRAVITY;
-        std::cout << "Applied gravity, new velocity.y = " << velocity.y << std::endl;
+        // Only print gravity debug occasionally to avoid spam
+        static int gravityDebugCounter = 0;
+        if (gravityDebugCounter++ % 60 == 0) {
+            std::cout << "Applied gravity, new velocity.y = " << velocity.y << std::endl;
+        }
     }
     
     // Update position
@@ -183,11 +186,31 @@ void Player::update(float deltaTime,const std::vector<sf::RectangleShape>& platf
     bool wasOnGround = onGround;
     onGround = false;
     
-    // First do a simple ground check - are we exactly at ground level?
-    if (position.y >= 540.0f && position.y <= 542.0f) {
+    // First do a simple ground check - are we at or near ground level?
+    // Ground level is at WINDOW_HEIGHT - GROUND_HEIGHT = 600 - 60 = 540
+    const float WINDOW_HEIGHT = 600.0f;
+    const float GROUND_HEIGHT = 60.0f;
+    const float GROUND_LEVEL = WINDOW_HEIGHT - GROUND_HEIGHT; // 540
+    
+    // Check if player's bottom edge is at or below ground level
+    float playerBottom = position.y + collisionBox.getSize().y;
+    if (playerBottom >= GROUND_LEVEL - 2.0f) {
+        // Position player so their bottom edge is at ground level
+        position.y = GROUND_LEVEL - collisionBox.getSize().y;
         onGround = true;
         velocity.y = 0;
-        std::cout << "Standing on main ground level" << std::endl;
+        static int groundDebugCounter = 0;
+        if (groundDebugCounter++ % 60 == 0) {
+            std::cout << "Standing on main ground level at y=" << position.y 
+                      << " (bottom at " << (position.y + collisionBox.getSize().y) << ")" << std::endl;
+        }
+    } else {
+        // Debug: why aren't we reaching ground?
+        static int fallDebugCounter = 0;
+        if (fallDebugCounter++ % 60 == 0) {
+            std::cout << "Player falling: y=" << position.y << ", bottom=" << playerBottom 
+                      << ", target ground=" << GROUND_LEVEL << ", velocity.y=" << velocity.y << std::endl;
+        }
     }
     
     // Now check platform collisions
@@ -232,11 +255,65 @@ void Player::update(float deltaTime,const std::vector<sf::RectangleShape>& platf
     if (onGround) {
         velocity.y = 0;
     }
-
+    
+    // Update animations
+    updateAnimation(deltaTime);
 }
 
 void Player::draw(sf::RenderWindow& window) {
-    // Only draw the collision box for debugging
+    // Debug: Check if animations are loaded
+    static int drawDebugCounter = 0;
+    if (drawDebugCounter++ % 60 == 0) {
+        std::cout << "Player draw: animationsLoaded=" << animationsLoaded << std::endl;
+    }
+    
+    // Draw the animated sprite if available
+    if (animationsLoaded) {
+        sf::Sprite animatedSprite = playerAnimation.getCurrentSprite();
+        
+        // Debug: Check sprite properties
+        static int debugCounter = 0;
+        if (debugCounter++ % 60 == 0) {  // More frequent debug output
+            try {
+                sf::Vector2u textureSize = animatedSprite.getTexture().getSize();
+                sf::Vector2f scale = animatedSprite.getScale();
+                sf::FloatRect bounds = animatedSprite.getGlobalBounds();
+                std::cout << "Sprite debug: texture size=" << textureSize.x << "x" << textureSize.y 
+                          << ", scale=" << scale.x << "x" << scale.y 
+                          << ", bounds=" << bounds.size.x << "x" << bounds.size.y
+                          << ", position=" << position.x << "," << position.y << std::endl;
+            } catch (const std::exception& e) {
+                std::cout << "Sprite debug error: " << e.what() << std::endl;
+            }
+        }
+        
+        // Position the sprite at the player's position
+        animatedSprite.setPosition(position);
+        
+        // Handle sprite flipping for direction
+        if (facingLeft) {
+            // Flip the sprite horizontally
+            sf::Vector2f scale = animatedSprite.getScale();
+            animatedSprite.setScale(sf::Vector2f(-std::abs(scale.x), scale.y));
+            // Adjust position to account for flipping
+            animatedSprite.setPosition(sf::Vector2f(position.x + collisionBox.getSize().x, position.y));
+        } else {
+            // Ensure sprite is not flipped
+            sf::Vector2f scale = animatedSprite.getScale();
+            animatedSprite.setScale(sf::Vector2f(std::abs(scale.x), scale.y));
+            animatedSprite.setPosition(position);
+        }
+        
+        window.draw(animatedSprite);
+    } else {
+        // Debug: animations not loaded
+        static int noAnimDebugCounter = 0;
+        if (noAnimDebugCounter++ % 120 == 0) {
+            std::cout << "No animations loaded for player!" << std::endl;
+        }
+    }
+    
+    // Also draw the collision box for debugging
     window.draw(collisionBox);
 }
 
@@ -252,4 +329,96 @@ void Player::reset(float x, float y) {
     
     // Debug output for reset position
     std::cout << "Player reset to: " << x << ", " << y << std::endl;
+    
+    // Reset animation to idle
+    if (animationsLoaded) {
+        playerAnimation.setState(AnimationState::Idle);
+        playerAnimation.reset();
+    }
+}
+
+void Player::initializeAnimations() {
+    std::cout << "Initializing player animations..." << std::endl;
+    
+    // Load idle animation
+    bool idleLoaded = playerAnimation.loadAnimation(AnimationState::Idle, 
+        "assets/images/characters/separated_finn/idle");
+    
+    // Load walking animation
+    bool walkingLoaded = playerAnimation.loadAnimation(AnimationState::Walking, 
+        "assets/images/characters/separated_finn/walking");
+    
+    // Load jumping animation (if available)
+    bool jumpingLoaded = playerAnimation.loadAnimation(AnimationState::Jumping, 
+        "assets/images/characters/separated_finn/jump");
+    
+    // Set animation properties
+    playerAnimation.setFrameTime(0.15f); // 150ms per frame for smooth animation
+    playerAnimation.setScale(2.0f, 2.0f); // Scale up the sprites
+    
+    // Start with idle animation
+    playerAnimation.setState(AnimationState::Idle);
+    
+    animationsLoaded = idleLoaded || walkingLoaded || jumpingLoaded;
+    
+    if (animationsLoaded) {
+        std::cout << "Player animations loaded successfully!" << std::endl;
+        std::cout << "  Idle: " << (idleLoaded ? "✓" : "✗") << std::endl;
+        std::cout << "  Walking: " << (walkingLoaded ? "✓" : "✗") << std::endl;
+        std::cout << "  Jumping: " << (jumpingLoaded ? "✓" : "✗") << std::endl;
+    } else {
+        std::cout << "Failed to load any player animations!" << std::endl;
+    }
+}
+
+void Player::updateAnimation(float deltaTime) {
+    if (!animationsLoaded) {
+        return;
+    }
+    
+    // Determine which animation should be playing based on player state
+    AnimationState targetState = AnimationState::Idle;
+    
+    // Check if player is moving horizontally (based on input, not just velocity)
+    bool isMovingHorizontally = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) || 
+                               sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right);
+    
+    if (!onGround && isJumping) {
+        targetState = AnimationState::Jumping;
+    } else if (isMovingHorizontally && onGround) {
+        targetState = AnimationState::Walking;
+    } else {
+        targetState = AnimationState::Idle;
+    }
+    
+    // Debug output to see what's happening
+    static AnimationState lastState = AnimationState::Idle;
+    static int debugCounter = 0;
+    if (targetState != lastState || debugCounter++ % 120 == 0) {
+        std::cout << "Animation state: " << static_cast<int>(targetState) 
+                  << " (0=Idle, 1=Walking, 2=Jumping)" << std::endl;
+        std::cout << "  onGround: " << onGround << ", isJumping: " << isJumping 
+                  << ", isMovingHorizontally: " << isMovingHorizontally 
+                  << ", velocity.y: " << velocity.y << std::endl;
+        lastState = targetState;
+    }
+    
+    // Set the animation state
+    playerAnimation.setState(targetState);
+    
+    // Update the animation
+    playerAnimation.update(deltaTime);
+}
+
+const sf::Sprite& Player::getAnimatedSprite() const {
+    if (!animationsLoaded) {
+        // Return the empty sprite from the animation system
+        return playerAnimation.getCurrentSprite();
+    }
+    
+    return playerAnimation.getCurrentSprite();
+}
+
+bool Player::hasAnimations() const {
+    return animationsLoaded;
 } 
