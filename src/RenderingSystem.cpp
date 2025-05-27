@@ -5,8 +5,13 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <filesystem>
+#include <algorithm>
+#include <cstdint>
 
-RenderingSystem::RenderingSystem(sf::RenderWindow& window) : window(window) {
+namespace fs = std::filesystem;
+
+RenderingSystem::RenderingSystem() {
     // Initialize logging
     logFile.open(logFileName, std::ios::out | std::ios::app);
     if (logFile.is_open()) {
@@ -24,7 +29,11 @@ RenderingSystem::RenderingSystem(sf::RenderWindow& window) : window(window) {
     enemyPlaceholder.setSize(sf::Vector2f(32, 32));
     enemyPlaceholder.setFillColor(sf::Color::Red);
     
-    logInfo("Placeholder shapes initialized");
+    // Initialize random engine for tile rendering
+    auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    randomEngine.seed(static_cast<unsigned int>(seed));
+    
+    logInfo("Placeholder shapes and tile system initialized");
 }
 
 RenderingSystem::~RenderingSystem() {
@@ -37,9 +46,15 @@ RenderingSystem::~RenderingSystem() {
 void RenderingSystem::renderFrame() {
     // Main rendering orchestration method
     // This will be the central method that coordinates all rendering
+    // Note: This method requires a render target to be set
+    
+    if (!renderTarget) {
+        logError("No render target set for renderFrame()");
+        return;
+    }
     
     // Clear the window
-    window.clear(sf::Color::Black);
+    renderTarget->clear(sf::Color::Black);
     
     // Render background
     renderBackground();
@@ -72,8 +87,10 @@ void RenderingSystem::renderFrame() {
 }
 
 void RenderingSystem::renderBackground() {
+    if (!renderTarget) return;
+    
     if (useBackgroundPlaceholder) {
-        window.draw(backgroundPlaceholder);
+        renderTarget->draw(backgroundPlaceholder);
         logDebug("Rendered background placeholder");
     } else {
         renderBackgroundLayers();
@@ -82,10 +99,12 @@ void RenderingSystem::renderBackground() {
 }
 
 void RenderingSystem::renderBackgroundLayers() {
+    if (!renderTarget) return;
+    
     int layersRendered = 0;
     for (auto& layer : backgroundLayers) {
         if (layer.isLoaded && layer.sprite) {
-            window.draw(*layer.sprite);
+            renderTarget->draw(*layer.sprite);
             layersRendered++;
         }
     }
@@ -98,30 +117,36 @@ void RenderingSystem::setBackgroundLayers(std::vector<BackgroundLayer>&& layers)
 }
 
 void RenderingSystem::renderPlatforms(const std::vector<sf::RectangleShape>& platforms) {
+    if (!renderTarget) return;
+    
     for (const auto& platform : platforms) {
-        window.draw(platform);
+        renderTarget->draw(platform);
     }
     logDebug("Rendered " + std::to_string(platforms.size()) + " platforms");
 }
 
 void RenderingSystem::renderLadders(const std::vector<sf::RectangleShape>& ladders) {
+    if (!renderTarget) return;
+    
     for (const auto& ladder : ladders) {
-        window.draw(ladder);
+        renderTarget->draw(ladder);
     }
     logDebug("Rendered " + std::to_string(ladders.size()) + " ladders");
 }
 
 void RenderingSystem::renderPlayer(const Player& player) {
+    if (!renderTarget) return;
+    
     if (usePlayerPlaceholder) {
         playerPlaceholder.setPosition(player.getPosition());
-        window.draw(playerPlaceholder);
+        renderTarget->draw(playerPlaceholder);
         logDebug("Rendered player placeholder at position (" + 
                 std::to_string(player.getPosition().x) + ", " + 
                 std::to_string(player.getPosition().y) + ")");
     } else if (playerSprite) {
         playerSprite->setPosition(player.getPosition());
         playerSprite->setScale(sf::Vector2f(spriteScale, spriteScale));
-        window.draw(*playerSprite);
+        renderTarget->draw(*playerSprite);
         logDebug("Rendered player sprite at position (" + 
                 std::to_string(player.getPosition().x) + ", " + 
                 std::to_string(player.getPosition().y) + ")");
@@ -131,6 +156,8 @@ void RenderingSystem::renderPlayer(const Player& player) {
 }
 
 void RenderingSystem::renderEnemies(const std::vector<Enemy>& enemies) {
+    if (!renderTarget) return;
+    
     if (!showEnemies) {
         logDebug("Enemy rendering skipped (showEnemies = false)");
         return;
@@ -140,12 +167,12 @@ void RenderingSystem::renderEnemies(const std::vector<Enemy>& enemies) {
     for (const auto& enemy : enemies) {
         if (useEnemyPlaceholder) {
             enemyPlaceholder.setPosition(enemy.getPosition());
-            window.draw(enemyPlaceholder);
+            renderTarget->draw(enemyPlaceholder);
             enemiesRendered++;
         } else if (enemySprite) {
             enemySprite->setPosition(enemy.getPosition());
             enemySprite->setScale(sf::Vector2f(spriteScale, spriteScale));
-            window.draw(*enemySprite);
+            renderTarget->draw(*enemySprite);
             enemiesRendered++;
         }
     }
@@ -216,6 +243,8 @@ void RenderingSystem::clearLogFile() {
 }
 
 void RenderingSystem::renderSpriteWithDirection(const sf::Sprite& sprite, const sf::Vector2f& position, bool facingLeft) {
+    if (!renderTarget) return;
+    
     // Helper method for rendering sprites with direction
     sf::Sprite tempSprite = sprite;
     tempSprite.setPosition(position);
@@ -227,7 +256,7 @@ void RenderingSystem::renderSpriteWithDirection(const sf::Sprite& sprite, const 
         tempSprite.setScale(scale);
     }
     
-    window.draw(tempSprite);
+    renderTarget->draw(tempSprite);
     logDebug("Rendered sprite with direction at (" + 
             std::to_string(position.x) + ", " + 
             std::to_string(position.y) + "), facing " + 
@@ -235,12 +264,14 @@ void RenderingSystem::renderSpriteWithDirection(const sf::Sprite& sprite, const 
 }
 
 void RenderingSystem::renderPlaceholderWithDirection(const sf::RectangleShape& placeholder, const sf::Vector2f& position, bool facingLeft) {
+    if (!renderTarget) return;
+    
     // Helper method for rendering placeholders with direction
     sf::RectangleShape tempPlaceholder = placeholder;
     tempPlaceholder.setPosition(position);
     
     // Placeholders don't need direction changes, but this method maintains consistency
-    window.draw(tempPlaceholder);
+    renderTarget->draw(tempPlaceholder);
     logDebug("Rendered placeholder at (" + 
             std::to_string(position.x) + ", " + 
             std::to_string(position.y) + ")");
@@ -285,4 +316,226 @@ std::string RenderingSystem::getCurrentTimestamp() {
     ss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
     ss << '.' << std::setfill('0') << std::setw(3) << ms.count();
     return ss.str();
+}
+
+// ============================================================================
+// Tile Rendering System (moved from TileRenderer)
+// ============================================================================
+
+bool RenderingSystem::loadTiles(const std::string& tilesDirectory) {
+    tileTextures.clear();
+    tileSprites.clear();
+    
+    logInfo("Loading tiles from: " + tilesDirectory);
+    
+    if (!fs::exists(tilesDirectory)) {
+        logError("Tiles directory does not exist: " + tilesDirectory);
+        return false;
+    }
+    
+    // Load all PNG files from the tiles directory
+    std::vector<std::string> tileFiles;
+    
+    try {
+        for (const auto& entry : fs::directory_iterator(tilesDirectory)) {
+            if (entry.is_regular_file()) {
+                std::string filename = entry.path().filename().string();
+                if (filename.size() >= 4 && filename.substr(filename.size() - 4) == ".png") {
+                    tileFiles.push_back(entry.path().string());
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        logError("Error reading tiles directory: " + std::string(e.what()));
+        return false;
+    }
+    
+    // Sort files to ensure consistent loading order
+    std::sort(tileFiles.begin(), tileFiles.end());
+    
+    if (tileFiles.empty()) {
+        logError("No PNG files found in tiles directory");
+        return false;
+    }
+    
+    // Load each tile texture
+    for (const auto& filePath : tileFiles) {
+        auto texture = std::make_unique<sf::Texture>();
+        
+        if (texture->loadFromFile(filePath)) {
+            auto sprite = std::make_unique<sf::Sprite>(*texture);
+            sprite->setScale(sf::Vector2f(tileScale, tileScale));
+            
+            tileTextures.push_back(std::move(texture));
+            tileSprites.push_back(std::move(sprite));
+            
+            logInfo("Loaded tile: " + fs::path(filePath).filename().string());
+        } else {
+            logError("Failed to load tile: " + filePath);
+        }
+    }
+    
+    if (tileTextures.empty()) {
+        logError("No tiles were successfully loaded");
+        return false;
+    }
+    
+    // Update the distribution for random tile selection
+    updateTileDistribution();
+    
+    logInfo("Successfully loaded " + std::to_string(tileTextures.size()) + " tiles");
+    return true;
+}
+
+void RenderingSystem::renderPlatform(sf::RenderWindow& window, const sf::RectangleShape& platform, bool randomize) {
+    if (tileTextures.empty()) {
+        // Fallback to original platform rendering if no tiles loaded
+        window.draw(platform);
+        return;
+    }
+    
+    sf::Vector2f platformPos = platform.getPosition();
+    sf::Vector2f platformSize = platform.getSize();
+    
+    // Generate tile layout for this platform
+    auto tileLayout = generateTileLayout(platformPos, platformSize, randomize);
+    
+    // Render each tile
+    for (const auto& tilePos : tileLayout) {
+        sf::Sprite& sprite = getTileSprite(tilePos.tileIndex);
+        
+        float scaledTileSize = tileSize * tileScale;
+        sprite.setPosition(sf::Vector2f(
+            platformPos.x + tilePos.x * scaledTileSize,
+            platformPos.y + tilePos.y * scaledTileSize
+        ));
+        
+        window.draw(sprite);
+    }
+}
+
+void RenderingSystem::renderPlatforms(sf::RenderWindow& window, const std::vector<sf::RectangleShape>& platforms, bool randomize) {
+    for (const auto& platform : platforms) {
+        renderPlatform(window, platform, randomize);
+    }
+}
+
+void RenderingSystem::renderTileGrid(sf::RenderWindow& window, const sf::Vector2f& position, const sf::Vector2f& size) {
+    if (tileTextures.empty()) return;
+    
+    float scaledTileSize = tileSize * tileScale;
+    int tilesX = static_cast<int>(std::ceil(size.x / scaledTileSize));
+    int tilesY = static_cast<int>(std::ceil(size.y / scaledTileSize));
+    
+    for (int y = 0; y < tilesY; y++) {
+        for (int x = 0; x < tilesX; x++) {
+            int tileIndex = (x + y) % tileTextures.size(); // Simple pattern for debug
+            sf::Sprite& sprite = getTileSprite(tileIndex);
+            
+            sprite.setPosition(sf::Vector2f(
+                position.x + x * scaledTileSize,
+                position.y + y * scaledTileSize
+            ));
+            
+            window.draw(sprite);
+        }
+    }
+}
+
+void RenderingSystem::renderBackground(sf::RenderWindow& window, const sf::Sprite& background) {
+    window.draw(background);
+}
+
+void RenderingSystem::renderEntity(sf::RenderWindow& window, const sf::Sprite& sprite, const sf::Vector2f& position) {
+    sf::Sprite tempSprite = sprite;
+    tempSprite.setPosition(position);
+    window.draw(tempSprite);
+}
+
+void RenderingSystem::renderShape(sf::RenderWindow& window, const sf::Shape& shape) {
+    window.draw(shape);
+}
+
+void RenderingSystem::beginBatch() {
+    spriteBatch.clear();
+    batchMode = true;
+}
+
+void RenderingSystem::endBatch() {
+    if (renderTarget) {
+        for (const auto& [sprite, position] : spriteBatch) {
+            sf::Sprite tempSprite = sprite;
+            tempSprite.setPosition(position);
+            renderTarget->draw(tempSprite);
+        }
+    }
+    spriteBatch.clear();
+    batchMode = false;
+}
+
+void RenderingSystem::addToBatch(const sf::Sprite& sprite, const sf::Vector2f& position) {
+    if (batchMode) {
+        spriteBatch.emplace_back(sprite, position);
+    }
+}
+
+int RenderingSystem::getRandomTileIndex() {
+    if (tileTextures.empty()) return 0;
+    return tileDistribution(randomEngine);
+}
+
+void RenderingSystem::updateTileDistribution() {
+    if (!tileTextures.empty()) {
+        tileDistribution = std::uniform_int_distribution<int>(0, static_cast<int>(tileTextures.size() - 1));
+    }
+}
+
+sf::Sprite& RenderingSystem::getTileSprite(int index) {
+    // Ensure index is within bounds
+    index = std::max(0, std::min(index, static_cast<int>(tileSprites.size() - 1)));
+    return *tileSprites[index];
+}
+
+std::vector<RenderingSystem::TilePosition> RenderingSystem::generateTileLayout(
+    const sf::Vector2f& platformPos, 
+    const sf::Vector2f& platformSize, 
+    bool randomize) {
+    
+    std::vector<TilePosition> layout;
+    
+    float scaledTileSize = tileSize * tileScale;
+    int tilesX = static_cast<int>(std::ceil(platformSize.x / scaledTileSize));
+    int tilesY = static_cast<int>(std::ceil(platformSize.y / scaledTileSize));
+    
+    // Create a deterministic seed based on platform position for consistent randomization
+    // This ensures the same platform always gets the same random pattern
+    std::mt19937 localRandom;
+    if (randomize && randomizationEnabled) {
+        // Use platform position as seed to ensure consistent randomization per platform
+        uint32_t seed = static_cast<uint32_t>(platformPos.x * 1000 + platformPos.y * 1000);
+        localRandom.seed(seed);
+    }
+    
+    for (int y = 0; y < tilesY; y++) {
+        for (int x = 0; x < tilesX; x++) {
+            TilePosition tilePos;
+            tilePos.x = x;
+            tilePos.y = y;
+            
+            if (randomize && randomizationEnabled) {
+                // Use local random generator with deterministic seed for consistent results
+                std::uniform_int_distribution<int> localDist(0, static_cast<int>(tileTextures.size() - 1));
+                tilePos.tileIndex = localDist(localRandom);
+            } else {
+                // Use a deterministic pattern based on position
+                // This creates a consistent but varied pattern
+                int patternIndex = (x * 3 + y * 7) % tileTextures.size();
+                tilePos.tileIndex = patternIndex;
+            }
+            
+            layout.push_back(tilePos);
+        }
+    }
+    
+    return layout;
 }

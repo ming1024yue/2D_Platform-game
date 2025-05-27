@@ -9,7 +9,7 @@
 #include "LightingSystem.hpp"
 #include "AssetManager.hpp"
 #include "Physics.hpp"
-#include "TileRenderer.hpp"
+#include "RenderingSystem.hpp"
 #include "imgui.h"
 #include "imgui-SFML.h"
 
@@ -31,21 +31,7 @@ struct ImageAssetInfo {
     sf::Time loadTime;
 };
 
-// Background layer structure for parallax backgrounds
-struct BackgroundLayer {
-    std::unique_ptr<sf::Sprite> sprite;
-    sf::Vector2u textureSize;
-    float parallaxSpeed;    // 0.0 = static, 1.0 = moves with camera
-    std::string name;       // Layer name (e.g., "background1", "background2", "background3", "background4")
-    bool isLoaded;
-    bool tileHorizontally;  // Whether to tile this layer horizontally
-    bool tileVertically;    // Whether to tile this layer vertically
-    
-    BackgroundLayer(const std::string& layerName, float speed = 1.0f, 
-                   bool tileH = true, bool tileV = false) 
-        : parallaxSpeed(speed), name(layerName), isLoaded(false),
-          tileHorizontally(tileH), tileVertically(tileV) {}
-};
+// BackgroundLayer is now defined in RenderingSystem.hpp
 
 class Game {
 public:
@@ -141,8 +127,8 @@ private:
     // Physics system
     PhysicsSystem physicsSystem;
     
-    // Tile rendering system
-    TileRenderer tileRenderer;
+    // Rendering system (includes tile rendering)
+    RenderingSystem renderingSystem;
     
     // Mini-map elements
     sf::RectangleShape miniMapBorder;

@@ -320,13 +320,13 @@ void Game::loadAssets() {
             
             bool tilesLoaded = false;
             for (const auto& path : tilePaths) {
-                if (tileRenderer.loadTiles(path)) {
-                    logInfo("Successfully loaded platform tiles from: " + path);
-                    tilesLoaded = true;
-                    break;
-                } else {
-                    logWarning("Failed to load tiles from: " + path);
-                }
+                            if (renderingSystem.loadTiles(path)) {
+                logInfo("Successfully loaded platform tiles from: " + path);
+                tilesLoaded = true;
+                break;
+            } else {
+                logWarning("Failed to load tiles from: " + path);
+            }
             }
             
             if (!tilesLoaded) {
@@ -1323,19 +1323,19 @@ void Game::updateImGui() {
                     
                     // Platform tiles section
                     ImGui::Text("Platform Tiles");
-                    ImGui::Text("Status: %s", tileRenderer.isLoaded() ? "Loaded" : "Not loaded");
-                    if (tileRenderer.isLoaded()) {
-                        ImGui::Text("Tile count: %d", tileRenderer.getTileCount());
+                    ImGui::Text("Status: %s", renderingSystem.isLoaded() ? "Loaded" : "Not loaded");
+                    if (renderingSystem.isLoaded()) {
+                        ImGui::Text("Tile count: %d", renderingSystem.getTileCount());
                         
                         // Tile renderer settings
-                        int tileSize = tileRenderer.getTileSize();
+                        int tileSize = renderingSystem.getTileSize();
                         if (ImGui::SliderInt("Tile Size", &tileSize, 16, 128)) {
-                            tileRenderer.setTileSize(tileSize);
+                            renderingSystem.setTileSize(tileSize);
                         }
                         
-                        bool randomize = tileRenderer.isRandomizationEnabled();
+                        bool randomize = renderingSystem.isRandomizationEnabled();
                         if (ImGui::Checkbox("Randomize Tiles", &randomize)) {
-                            tileRenderer.setRandomizationEnabled(randomize);
+                            renderingSystem.setRandomizationEnabled(randomize);
                         }
                         
                         if (ImGui::Button("Reload Tiles")) {
@@ -1346,7 +1346,7 @@ void Game::updateImGui() {
                             };
                             
                             for (const auto& path : tilePaths) {
-                                if (tileRenderer.loadTiles(path)) {
+                                if (renderingSystem.loadTiles(path)) {
                                     logInfo("Reloaded platform tiles from: " + path);
                                     break;
                                 }

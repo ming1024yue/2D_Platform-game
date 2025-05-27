@@ -144,10 +144,10 @@ void Game::draw() {
     // Draw debug grid for canonical coordinates
     drawDebugGrid();
     
-    // Draw platforms using tile renderer
-    if (tileRenderer.isLoaded()) {
-        // Use tile renderer for textured platforms
-        tileRenderer.renderPlatforms(window, platforms, true);
+    // Draw platforms using rendering system
+    if (renderingSystem.isLoaded()) {
+        // Use rendering system for textured platforms
+        renderingSystem.renderPlatforms(window, platforms, true);
     } else {
         // Fallback to original platform rendering if tiles not loaded
         for (const auto& platform : platforms) {
