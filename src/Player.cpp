@@ -84,13 +84,7 @@ void Player::handleInput() {
             velocity.y = 0;
         }
         
-        // Allow jumping off ladder
-        if (spacePressed) {
-            onLadder = false;
-            velocity.y = JUMP_FORCE;
-            isJumping = true;
-            std::cout << "Jumped off ladder! velocity.y=" << velocity.y << std::endl;
-        }
+        // Player cannot jump when on ladder - removed jumping off ladder functionality
     }
     else if (spacePressed && onGround) {
         velocity.y = JUMP_FORCE;

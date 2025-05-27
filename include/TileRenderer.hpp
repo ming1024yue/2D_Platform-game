@@ -42,7 +42,7 @@ private:
     std::vector<std::unique_ptr<sf::Sprite>> tileSprites;
     
     // Settings
-    int tileSize = 32;  // Size of each tile in pixels
+    int tileSize = 16;  // Size of each tile in pixels
     float tileScale = 2.0f;  // Scale factor for tiles
     bool randomizationEnabled = true;
     

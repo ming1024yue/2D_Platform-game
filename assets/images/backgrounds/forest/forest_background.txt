@@ -1,9 +1,0 @@
-This file is a placeholder for a forest background image.
-The forest background should have:
-- Green trees and foliage
-- Lush environment with perhaps some sunlight streaming through trees
-- A forest floor with grass and bushes
-- A bright blue sky visible through the tree canopy
-
-Recommended image dimensions: 800x600 pixels or larger with a 4:3 aspect ratio
-File format: PNG with transparency if needed 

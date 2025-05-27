@@ -36,7 +36,7 @@ struct BackgroundLayer {
     std::unique_ptr<sf::Sprite> sprite;
     sf::Vector2u textureSize;
     float parallaxSpeed;    // 0.0 = static, 1.0 = moves with camera
-    std::string name;       // Layer name (e.g., "sky", "clouds", "mountains", "ground")
+    std::string name;       // Layer name (e.g., "background1", "background2", "background3", "background4")
     bool isLoaded;
     bool tileHorizontally;  // Whether to tile this layer horizontally
     bool tileVertically;    // Whether to tile this layer vertically
@@ -82,15 +82,11 @@ private:
     void loadBackgroundLayers();
     void drawBackgroundLayers();
     
-    // Level-specific layouts
-    void forestLevelPlatforms();
-    void desertLevelPlatforms();
-    void snowLevelPlatforms();
+    // Level-specific layouts (removed for puzzle-focused gameplay)
     
     // Level-specific enemy patterns
-    void initializeForestEnemies();
-    void initializeDesertEnemies();
     void initializeSnowEnemies();
+    void initializeSnowForestEnemies();
     
     // ImGui methods
     void initializeImGui();

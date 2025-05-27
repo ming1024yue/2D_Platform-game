@@ -50,41 +50,35 @@ def main():
     # Create basic test layers
     print("Creating basic test layers...")
     
-    # Sky layer - light blue gradient effect
+    # Background1 layer - light blue gradient effect (sky-like)
     create_layer(width, height, (135, 206, 235, 255), 
-                os.path.join(output_dir, "sky.png"), "SKY")
+                os.path.join(output_dir, "background1.png"), "BACKGROUND1")
     
-    # Clouds layer - semi-transparent white
+    # Background2 layer - semi-transparent white (clouds-like)
     create_layer(width, height, (255, 255, 255, 128), 
-                os.path.join(output_dir, "clouds.png"), "CLOUDS")
+                os.path.join(output_dir, "background2.png"), "BACKGROUND2")
     
-    # Mountains layer - dark gray/purple
+    # Background3 layer - dark gray/purple (mountains-like)
     create_layer(width, height, (75, 75, 100, 255), 
-                os.path.join(output_dir, "mountains.png"), "MOUNTAINS")
+                os.path.join(output_dir, "background3.png"), "BACKGROUND3")
     
-    # Ground layer - green
+    # Background4 layer - green (ground-like)
     create_layer(width, height, (34, 139, 34, 255), 
-                os.path.join(output_dir, "ground.png"), "GROUND")
+                os.path.join(output_dir, "background4.png"), "BACKGROUND4")
     
     # Create theme-specific layers
     themes = {
-        "forest": {
-            "sky": (135, 206, 235, 255),      # Light blue
-            "clouds": (255, 255, 255, 100),   # Semi-transparent white
-            "mountains": (34, 100, 34, 255),  # Dark green
-            "ground": (50, 150, 50, 255)      # Bright green
-        },
-        "desert": {
-            "sky": (255, 218, 185, 255),      # Sandy sky
-            "clouds": (255, 240, 200, 120),   # Warm clouds
-            "mountains": (139, 90, 43, 255),  # Brown mountains
-            "ground": (210, 180, 140, 255)    # Sandy ground
-        },
         "snow": {
-            "sky": (200, 220, 255, 255),      # Cool blue sky
-            "clouds": (240, 240, 255, 150),   # Cool white clouds
-            "mountains": (150, 150, 180, 255), # Blue-gray mountains
-            "ground": (240, 240, 255, 255)    # White ground
+            "background1": (200, 220, 255, 255),      # Cool blue sky
+            "background2": (240, 240, 255, 150),      # Cool white clouds
+            "background3": (150, 150, 180, 255),      # Blue-gray mountains
+            "background4": (240, 240, 255, 255)       # White ground
+        },
+        "snow_forest": {
+            "background1": (255, 255, 255, 255),      # Pure white sky for snow forest
+            "background2": (220, 230, 245, 140),      # Softer clouds
+            "background3": (120, 140, 160, 255),      # Darker blue-gray mountains with forest
+            "background4": (220, 230, 245, 255)       # Slightly warmer white ground
         }
     }
     

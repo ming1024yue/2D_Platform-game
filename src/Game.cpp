@@ -474,294 +474,25 @@ void Game::initializePlatforms() {
     // Clear existing platforms
     platforms.clear();
     
-    // Different platform layouts based on level
-    if (currentLevel % 3 == 1) {
-        // Level 1 (or 4, 7...) - Forest theme with standard layout
-        forestLevelPlatforms();
-    } else if (currentLevel % 3 == 2) {
-        // Level 2 (or 5, 8...) - Desert theme with spaced platforms
-        desertLevelPlatforms();
-    } else {
-        // Level 3 (or 6, 9...) - Snow theme with vertical challenges
-        snowLevelPlatforms();
-    }
+    // Create only the ground platform for puzzle-based gameplay
+    sf::RectangleShape ground;
+    ground.setSize(sf::Vector2f(LEVEL_WIDTH, GROUND_HEIGHT));
+    ground.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - GROUND_HEIGHT));
+    ground.setFillColor(platformColor);
+    platforms.push_back(ground);
     
-    // Ensure platforms have the correct color applied before physics initialization
-    for (auto& platform : platforms) {
-        platform.setFillColor(platformColor);
-    }
-    
-    // Reinitialize physics system with the new platforms
+    // Reinitialize physics system with just the ground platform
     physicsSystem.initialize();
     physicsSystem.initializePlatforms(platforms);
-    
-
 }
 
-void Game::forestLevelPlatforms() {
-    // Ground platform
-    sf::RectangleShape ground;
-    ground.setSize(sf::Vector2f(LEVEL_WIDTH, GROUND_HEIGHT));
-    ground.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - GROUND_HEIGHT));
-    ground.setFillColor(platformColor);
-    platforms.push_back(ground);
 
-    // Platform layout focused on horizontal traversal
-    // Platform 1
-    sf::RectangleShape platform1;
-    platform1.setSize(sf::Vector2f(200.f, 20.f));
-    platform1.setPosition(sf::Vector2f(300.f, 400.f));
-    platform1.setFillColor(platformColor);
-    platforms.push_back(platform1);
 
-    // Platform 2
-    sf::RectangleShape platform2;
-    platform2.setSize(sf::Vector2f(200.f, 20.f));
-    platform2.setPosition(sf::Vector2f(100.f, 300.f));
-    platform2.setFillColor(platformColor);
-    platforms.push_back(platform2);
 
-    // Platform 3
-    sf::RectangleShape platform3;
-    platform3.setSize(sf::Vector2f(200.f, 20.f));
-    platform3.setPosition(sf::Vector2f(500.f, 200.f));
-    platform3.setFillColor(platformColor);
-    platforms.push_back(platform3);
-    
-    // Forest specific - longer platforms with gaps
-    sf::RectangleShape platform4;
-    platform4.setSize(sf::Vector2f(300.f, 20.f));
-    platform4.setPosition(sf::Vector2f(900.f, 350.f));
-    platform4.setFillColor(platformColor);
-    platforms.push_back(platform4);
-    
-    sf::RectangleShape platform5;
-    platform5.setSize(sf::Vector2f(300.f, 20.f));
-    platform5.setPosition(sf::Vector2f(1300.f, 250.f));
-    platform5.setFillColor(platformColor);
-    platforms.push_back(platform5);
-    
-    sf::RectangleShape platform6;
-    platform6.setSize(sf::Vector2f(300.f, 20.f));
-    platform6.setPosition(sf::Vector2f(1700.f, 350.f));
-    platform6.setFillColor(platformColor);
-    platforms.push_back(platform6);
-    
-    sf::RectangleShape platform7;
-    platform7.setSize(sf::Vector2f(300.f, 20.f));
-    platform7.setPosition(sf::Vector2f(2100.f, 250.f));
-    platform7.setFillColor(platformColor);
-    platforms.push_back(platform7);
-    
-    sf::RectangleShape platform8;
-    platform8.setSize(sf::Vector2f(300.f, 20.f));
-    platform8.setPosition(sf::Vector2f(2500.f, 350.f));
-    platform8.setFillColor(platformColor);
-    platforms.push_back(platform8);
-    
-    // End platform
-    sf::RectangleShape platform9;
-    platform9.setSize(sf::Vector2f(200.f, 20.f));
-    platform9.setPosition(sf::Vector2f(2850.f, 250.f));
-    platform9.setFillColor(platformColor);
-    platforms.push_back(platform9);
-}
-
-void Game::desertLevelPlatforms() {
-    // Ground platform - desert has some gaps in the ground, but safer layout
-    sf::RectangleShape ground1;
-    ground1.setSize(sf::Vector2f(950.f, GROUND_HEIGHT));  // Extended to x=950 to reduce gap
-    ground1.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - GROUND_HEIGHT));
-    ground1.setFillColor(platformColor);
-    platforms.push_back(ground1);
-    
-    sf::RectangleShape ground2;
-    ground2.setSize(sf::Vector2f(850.f, GROUND_HEIGHT));  // Extended and moved closer
-    ground2.setPosition(sf::Vector2f(980.f, WINDOW_HEIGHT - GROUND_HEIGHT));  // Moved from 1000 to 980 (smaller gap)
-    ground2.setFillColor(platformColor);
-    platforms.push_back(ground2);
-    
-    sf::RectangleShape ground3;
-    ground3.setSize(sf::Vector2f(1000.f, GROUND_HEIGHT));
-    ground3.setPosition(sf::Vector2f(2000.f, WINDOW_HEIGHT - GROUND_HEIGHT));
-    ground3.setFillColor(platformColor);
-    platforms.push_back(ground3);
-
-    // Desert has more scattered platforms with various heights - improved layout
-    // Platform 1-3 with better spacing and less height difference
-    for (int i = 0; i < 3; i++) {
-        sf::RectangleShape platform;
-        platform.setSize(sf::Vector2f(180.f, 20.f));  // Wider platforms for easier landing
-        platform.setPosition(sf::Vector2f(200.f + i * 230.f, 420.f - i * 30.f));  // Reduced height difference from 40 to 30
-        platform.setFillColor(platformColor);
-        platforms.push_back(platform);
-    }
-    
-    // Middle section - floating islands
-    for (int i = 0; i < 5; i++) {
-        sf::RectangleShape platform;
-        platform.setSize(sf::Vector2f(180.f, 20.f));
-        float x = 1100.f + i * 300.f;
-        // Alternating heights
-        float y = (i % 2 == 0) ? 300.f : 420.f;
-        platform.setPosition(sf::Vector2f(x, y));
-        platform.setFillColor(platformColor);
-        platforms.push_back(platform);
-    }
-    
-    // End platforms
-    sf::RectangleShape platform8;
-    platform8.setSize(sf::Vector2f(200.f, 20.f));
-    platform8.setPosition(sf::Vector2f(2600.f, 350.f));
-    platform8.setFillColor(platformColor);
-    platforms.push_back(platform8);
-    
-    sf::RectangleShape platform9;
-    platform9.setSize(sf::Vector2f(200.f, 20.f));
-    platform9.setPosition(sf::Vector2f(2800.f, 250.f));
-    platform9.setFillColor(platformColor);
-    platforms.push_back(platform9);
-}
-
-void Game::snowLevelPlatforms() {
-    // Ground platform - snow level has full ground
-    sf::RectangleShape ground;
-    ground.setSize(sf::Vector2f(LEVEL_WIDTH, GROUND_HEIGHT));
-    ground.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - GROUND_HEIGHT));
-    ground.setFillColor(platformColor);
-    platforms.push_back(ground);
-
-    // Snow level has more vertical challenges - staggered platforms
-    // First section - climbing pattern
-    for (int i = 0; i < 4; i++) {
-        sf::RectangleShape platform;
-        platform.setSize(sf::Vector2f(150.f, 20.f));
-        float x = 200.f + (i % 2) * 200.f;
-        float y = 450.f - i * 80.f;
-        platform.setPosition(sf::Vector2f(x, y));
-        platform.setFillColor(platformColor);
-        platforms.push_back(platform);
-    }
-    
-    // Middle section - icy platforms (visually the same but gameplay logic could change)
-    for (int i = 0; i < 4; i++) {
-        sf::RectangleShape platform;
-        platform.setSize(sf::Vector2f(220.f, 20.f));
-        platform.setPosition(sf::Vector2f(800.f + i * 350.f, 250.f));
-        platform.setFillColor(platformColor);
-        platforms.push_back(platform);
-    }
-    
-    // Final section - descending platforms
-    for (int i = 0; i < 4; i++) {
-        sf::RectangleShape platform;
-        platform.setSize(sf::Vector2f(180.f, 20.f));
-        platform.setPosition(sf::Vector2f(2200.f + i * 180.f, 200.f + i * 50.f));
-        platform.setFillColor(platformColor);
-        platforms.push_back(platform);
-    }
-}
 
 void Game::initializeLadders() {
-    // Clear existing ladders
+    // Clear existing ladders - no ladders needed for puzzle-based gameplay
     ladders.clear();
-    
-    // Different ladder layouts based on level
-    sf::Color ladderColor;
-    
-    // Adjust ladder colors based on level theme
-    switch (currentLevel % 3) {
-        case 1: // Forest theme
-            ladderColor = sf::Color(139, 69, 19); // Brown wooden ladders
-            break;
-        case 2: // Desert theme
-            ladderColor = sf::Color(205, 133, 63); // Sandy/rope ladders
-            break;
-        default: // Snow theme
-            ladderColor = sf::Color(220, 220, 250); // Ice/metal ladders
-            break;
-    }
-    
-    if (currentLevel % 3 == 1) {
-        // Forest level - standard ladders
-        
-        // Ladder to reach higher platform
-        sf::RectangleShape ladder1;
-        ladder1.setSize(sf::Vector2f(30.f, 380.f));
-        ladder1.setPosition(sf::Vector2f(580.f, WINDOW_HEIGHT - 40.f - 380.f));
-        ladder1.setFillColor(ladderColor);
-        ladders.push_back(ladder1);
-        
-        // Middle section ladders
-        sf::RectangleShape ladder2;
-        ladder2.setSize(sf::Vector2f(30.f, 350.f));
-        ladder2.setPosition(sf::Vector2f(1400.f, 250.f - 100.f));
-        ladder2.setFillColor(ladderColor);
-        ladders.push_back(ladder2);
-        
-        // Final ladder
-        sf::RectangleShape ladder3;
-        ladder3.setSize(sf::Vector2f(30.f, 350.f));
-        ladder3.setPosition(sf::Vector2f(2850.f, 250.f - 100.f));
-        ladder3.setFillColor(ladderColor);
-        ladders.push_back(ladder3);
-    }
-    else if (currentLevel % 3 == 2) {
-        // Desert level - fewer, but taller ladders
-        
-        // First ladder to climb out of pit
-        sf::RectangleShape ladder1;
-        ladder1.setSize(sf::Vector2f(30.f, 200.f));
-        ladder1.setPosition(sf::Vector2f(950.f, WINDOW_HEIGHT - GROUND_HEIGHT - 200.f));
-        ladder1.setFillColor(ladderColor);
-        ladders.push_back(ladder1);
-        
-        // Middle ladder
-        sf::RectangleShape ladder2;
-        ladder2.setSize(sf::Vector2f(30.f, 420.f));
-        ladder2.setPosition(sf::Vector2f(1850.f, 300.f - 100.f));
-        ladder2.setFillColor(ladderColor);
-        ladders.push_back(ladder2);
-        
-        // Final ladder
-        sf::RectangleShape ladder3;
-        ladder3.setSize(sf::Vector2f(30.f, 350.f));
-        ladder3.setPosition(sf::Vector2f(2750.f, 250.f - 150.f));
-        ladder3.setFillColor(ladderColor);
-        ladders.push_back(ladder3);
-    }
-    else {
-        // Snow level - more ladders for vertical traversal
-        
-        // Several shorter ladders in the first section
-        for (int i = 0; i < 3; i++) {
-            sf::RectangleShape ladder;
-            ladder.setSize(sf::Vector2f(30.f, 150.f));
-            ladder.setPosition(sf::Vector2f(250.f + i * 180.f, 450.f - i * 80.f - 150.f));
-            ladder.setFillColor(ladderColor);
-            ladders.push_back(ladder);
-        }
-        
-        // Middle ladders
-        sf::RectangleShape ladder4;
-        ladder4.setSize(sf::Vector2f(30.f, 300.f));
-        ladder4.setPosition(sf::Vector2f(1100.f, 250.f - 100.f));
-        ladder4.setFillColor(ladderColor);
-        ladders.push_back(ladder4);
-        
-        sf::RectangleShape ladder5;
-        ladder5.setSize(sf::Vector2f(30.f, 300.f));
-        ladder5.setPosition(sf::Vector2f(1800.f, 250.f - 100.f));
-        ladder5.setFillColor(ladderColor);
-        ladders.push_back(ladder5);
-        
-        // Final ladders - longer for the final section
-        sf::RectangleShape ladder6;
-        ladder6.setSize(sf::Vector2f(30.f, 400.f));
-        ladder6.setPosition(sf::Vector2f(2700.f, 350.f - 150.f));
-        ladder6.setFillColor(ladderColor);
-        ladders.push_back(ladder6);
-    }
 }
 
 void Game::initializeEnemies() {
@@ -769,15 +500,12 @@ void Game::initializeEnemies() {
     enemies.clear();
     
     // Different enemy patterns based on level theme
-    if (currentLevel % 3 == 1) {
-        // Forest level - standard enemy pattern
-        initializeForestEnemies();
-    } else if (currentLevel % 3 == 2) {
-        // Desert level - more ground enemies, fewer platform enemies
-        initializeDesertEnemies();
-    } else {
-        // Snow level - enemies concentrated in middle section
+    if (currentLevel == 1) {
+        // Level 1 - Snow Mountain - enemies concentrated in middle section
         initializeSnowEnemies();
+    } else {
+        // Level 2+ - Snow Forest - forest-like enemy pattern adapted for snow
+        initializeSnowForestEnemies();
     }
     
     // Apply level difficulty scaling - enemies get faster in higher levels
@@ -800,46 +528,7 @@ void Game::initializeEnemies() {
     logDebug("Total enemies created: " + std::to_string(enemies.size()));
 }
 
-void Game::initializeForestEnemies() {
-    // Enemy on ground
-    enemies.push_back(Enemy(400.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 180.f));
-    
-    // Enemy on first platform
-    enemies.push_back(Enemy(380.f, 370.f, 80.f));
-    
-    // Enemy on second platform
-    enemies.push_back(Enemy(180.f, 270.f, 80.f));
-    
-    // Middle section enemies
-    enemies.push_back(Enemy(980.f, 320.f, 100.f));
-    enemies.push_back(Enemy(1400.f, 220.f, 120.f));
-    enemies.push_back(Enemy(1800.f, 320.f, 120.f));
-    
-    // End section enemy
-    enemies.push_back(Enemy(2600.f, 320.f, 120.f));
-}
 
-void Game::initializeDesertEnemies() {
-    // More ground enemies in the desert
-    enemies.push_back(Enemy(300.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 200.f));
-    enemies.push_back(Enemy(600.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 200.f));
-    
-    // Desert has more ground enemies
-    if (currentLevel > 2) {
-        enemies.push_back(Enemy(1200.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 220.f));
-        enemies.push_back(Enemy(2200.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 220.f));
-    }
-    
-    // Few platform enemies
-    enemies.push_back(Enemy(350.f, 320.f, 100.f));
-    
-    // Middle section has faster enemies with wider patrol range
-    enemies.push_back(Enemy(1250.f, 270.f, 150.f));
-    enemies.push_back(Enemy(1850.f, 390.f, 130.f));
-    
-    // Final platform enemy
-    enemies.push_back(Enemy(2700.f, 220.f, 100.f));
-}
 
 void Game::initializeSnowEnemies() {
     // Snow level has fewer ground enemies due to the cold
@@ -857,6 +546,27 @@ void Game::initializeSnowEnemies() {
     // Final descending section
     enemies.push_back(Enemy(2300.f, 170.f, 80.f));
     enemies.push_back(Enemy(2500.f, 220.f, 80.f));
+}
+
+void Game::initializeSnowForestEnemies() {
+    // Snow Forest enemies - similar to forest but adapted for snow theme
+    
+    // Enemy on ground
+    enemies.push_back(Enemy(400.f, WINDOW_HEIGHT - GROUND_HEIGHT - 30.f, 180.f));
+    
+    // Enemy on first platform
+    enemies.push_back(Enemy(380.f, 370.f, 80.f));
+    
+    // Enemy on second platform
+    enemies.push_back(Enemy(180.f, 270.f, 80.f));
+    
+    // Middle section enemies - slightly different positions than forest
+    enemies.push_back(Enemy(1000.f, 320.f, 100.f));
+    enemies.push_back(Enemy(1420.f, 220.f, 120.f));  // Adjusted for new platform positions
+    enemies.push_back(Enemy(1820.f, 350.f, 120.f));
+    
+    // End section enemy
+    enemies.push_back(Enemy(2620.f, 290.f, 120.f));  // Adjusted for new platform height
 }
 
 void Game::checkGameOver() {
@@ -1185,36 +895,26 @@ void Game::nextLevel() {
         std::string levelBackgroundPath;
         std::vector<std::string> alternativePaths;
         
-        switch (currentLevel % 3) {
-            case 1: // Forest theme (levels 1, 4, 7...)
-                levelBackgroundPath = "assets/images/backgrounds/forest/forest_background.png";
-                platformColor = sf::Color(34, 139, 34); // Forest green
-                alternativePaths = {
-                    "assets/images/backgrounds/forest_background.png",
-                    "assets/images/backgrounds/background.png",
-                    "../assets/images/backgrounds/background.png"
-                };
-                break;
-                
-            case 2: // Desert theme (levels 2, 5, 8...)
-                levelBackgroundPath = "assets/images/backgrounds/desert/desert_background.png";
-                platformColor = sf::Color(210, 180, 140); // Desert sand color
-                alternativePaths = {
-                    "assets/images/backgrounds/desert_background.png",
-                    "assets/images/backgrounds/background.png",
-                    "../assets/images/backgrounds/background.png"
-                };
-                break;
-                
-            case 0: // Snow theme (levels 3, 6, 9...)
-                levelBackgroundPath = "assets/images/backgrounds/snow/snow_background.png";
-                platformColor = sf::Color(200, 220, 255); // Light blue for snow
-                alternativePaths = {
-                    "assets/images/backgrounds/snow_background.png",
-                    "assets/images/backgrounds/background.png",
-                    "../assets/images/backgrounds/background.png"
-                };
-                break;
+        // Both levels use snow theme with different variations
+        if (currentLevel == 1) {
+            // Level 1 - Snow Mountain
+            levelBackgroundPath = "assets/images/backgrounds/snow/snow_background.png";
+            platformColor = sf::Color(200, 220, 255); // Light blue for snow mountain
+            alternativePaths = {
+                "assets/images/backgrounds/snow_background.png",
+                "assets/images/backgrounds/background.png",
+                "../assets/images/backgrounds/background.png"
+            };
+        } else {
+            // Level 2+ - Snow Forest
+            levelBackgroundPath = "assets/images/backgrounds/snow_forest/snow_forest_background.png";
+            platformColor = sf::Color(180, 200, 240); // Slightly different blue for snow forest
+            alternativePaths = {
+                "assets/images/backgrounds/snow_forest_background.png",
+                "assets/images/backgrounds/snow/snow_background.png",
+                "assets/images/backgrounds/background.png",
+                "../assets/images/backgrounds/background.png"
+            };
         }
         
         // Try to load the level-specific background
@@ -1294,29 +994,17 @@ void Game::nextLevel() {
             float patrolDistance = 160.f + (currentLevel * 20.f); // Longer patrol for higher levels
             enemies.push_back(Enemy(x, y, patrolDistance));
         }
-        
-        // Level-specific physics changes
-        switch (currentLevel % 3) {
-            case 1: // Forest level - normal physics
-                physicsSystem.setGravity(10.0f);
-                physicsSystem.setJumpForce(400.f);
-                break;
-            case 2: // Desert level - same gravity, slightly different jump
-                physicsSystem.setGravity(10.0f);
-                physicsSystem.setJumpForce(420.f);
-                break;
-            case 0: // Snow level - same gravity, different jump
-                physicsSystem.setGravity(10.0f);
-                physicsSystem.setJumpForce(350.f);
-                break;
-        }
-        
-        // Ensure physics components for enemies are reinitialized
-        physicsSystem.initializeEnemies(enemies);
-        
-        // Update minimap to include new enemies
-        initializeMiniMap();
     }
+    
+    // Puzzle-focused physics - minimal jumping, ground-based movement
+    physicsSystem.setGravity(15.0f);  // Higher gravity to keep player grounded
+    physicsSystem.setJumpForce(200.f); // Much lower jump force for puzzle gameplay
+    
+    // Ensure physics components for enemies are reinitialized
+    physicsSystem.initializeEnemies(enemies);
+    
+    // Update minimap to include new enemies
+    initializeMiniMap();
 }
 
 void Game::updateImGui() {
@@ -1473,29 +1161,23 @@ void Game::updateImGui() {
                     ImGui::SameLine();
                     
                     // Quick level buttons
-                    if (ImGui::Button("Level 1 (Forest)")) {
+                    if (ImGui::Button("Level 1 (Snow Mountain)")) {
                         jumpToLevel(1);
                         selectedLevel = 1;
                     }
                     
-                    if (ImGui::Button("Level 2 (Desert)")) {
-                        jumpToLevel(2);
-                        selectedLevel = 2;
-                    }
-                    
                     ImGui::SameLine();
                     
-                    if (ImGui::Button("Level 3 (Snow)")) {
-                        jumpToLevel(3);
-                        selectedLevel = 3;
+                    if (ImGui::Button("Level 2 (Snow Forest)")) {
+                        jumpToLevel(2);
+                        selectedLevel = 2;
                     }
                     
                     // Level theme info
                     ImGui::Separator();
                     ImGui::Text("Level Themes:");
-                    ImGui::BulletText("Levels 1, 4, 7... = Forest (Normal physics)");
-                    ImGui::BulletText("Levels 2, 5, 8... = Desert (Higher gravity)");
-                    ImGui::BulletText("Levels 3, 6, 9... = Snow (Lower gravity)");
+                    ImGui::BulletText("Level 1 = Snow Mountain (Puzzle challenges)");
+                    ImGui::BulletText("Level 2+ = Snow Forest (Puzzle challenges)");
                     
                     ImGui::Separator();
                     
@@ -2359,21 +2041,9 @@ void Game::jumpToLevel(int level) {
         }
     }
     
-    // Level-specific physics changes
-    switch (currentLevel % 3) {
-        case 1: // Forest level - normal physics
-            physicsSystem.setGravity(10.0f);
-            physicsSystem.setJumpForce(400.f);
-            break;
-        case 2: // Desert level - same gravity, slightly different jump
-            physicsSystem.setGravity(10.0f);
-            physicsSystem.setJumpForce(420.f);
-            break;
-        case 0: // Snow level - same gravity, different jump
-            physicsSystem.setGravity(10.0f);
-            physicsSystem.setJumpForce(350.f);
-            break;
-    }
+    // Puzzle-focused physics - minimal jumping, ground-based movement
+    physicsSystem.setGravity(15.0f);  // Higher gravity to keep player grounded
+    physicsSystem.setJumpForce(200.f); // Much lower jump force for puzzle gameplay
     
     // Initialize physics system
     physicsSystem.initialize();
@@ -2389,21 +2059,21 @@ void Game::initializeBackgroundLayers() {
     backgroundLayers.clear();
     
     // Define layers from back to front with parallax speeds
-    // The drawing order is: sky (first/back) -> clouds -> mountains -> ground (last/front)
-    // This creates the correct visual layering with ground on top and sky at the back
+    // The drawing order is: background1 (first/back) -> background2 -> background3 -> background4 (last/front)
+    // This creates the correct visual layering with background4 on top and background1 at the back
     // All layers now move at the same speed (1.0f) to avoid dizzying parallax effects
     
-    // Sky layer - moves with camera (furthest back)
-    backgroundLayers.emplace_back("sky", 0.0f, true, true);
+    // Background1 layer - moves with camera (furthest back)
+    backgroundLayers.emplace_back("background1", 0.0f, true, true);
     
-    // Cloud layer - moves with camera (behind mountains and ground)
-    backgroundLayers.emplace_back("clouds", 0.0f, true, false);
+    // Background2 layer - moves with camera (behind background3 and background4)
+    backgroundLayers.emplace_back("background2", 0.0f, true, false);
     
-    // Mountain layer - moves with camera (behind ground, in front of clouds)
-    backgroundLayers.emplace_back("mountains", 0.0f, true, false);
+    // Background3 layer - moves with camera (behind background4, in front of background2)
+    backgroundLayers.emplace_back("background3", 0.0f, true, false);
     
-    // Ground layer - moves with camera (closest to viewer, on top of all other layers)
-    backgroundLayers.emplace_back("ground", 0.0f, true, false);
+    // Background4 layer - moves with camera (closest to viewer, on top of all other layers)
+    backgroundLayers.emplace_back("background4", 0.0f, true, false);
     
     logInfo("Initialized " + std::to_string(backgroundLayers.size()) + " background layers");
 }
@@ -2417,37 +2087,33 @@ void Game::loadBackgroundLayers() {
         // Define potential paths for each layer
         std::vector<std::string> layerPaths;
         
-        if (layer.name == "sky") {
+        if (layer.name == "background1") {
             layerPaths = {
-                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/sky.png",
-                "assets/images/backgrounds/sky.png",
-                "assets/images/backgrounds/forest/sky.png",
-                "assets/images/backgrounds/desert/sky.png",
-                "assets/images/backgrounds/snow/sky.png"
+                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/background1.png",
+                "assets/images/backgrounds/background1.png",
+                (currentLevel == 1) ? "assets/images/backgrounds/snow/background1.png" : "assets/images/backgrounds/snow_forest/background1.png",
+                "assets/images/backgrounds/snow/background1.png"
             };
-        } else if (layer.name == "clouds") {
+        } else if (layer.name == "background2") {
             layerPaths = {
-                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/clouds.png",
-                "assets/images/backgrounds/clouds.png",
-                "assets/images/backgrounds/forest/clouds.png",
-                "assets/images/backgrounds/desert/clouds.png",
-                "assets/images/backgrounds/snow/clouds.png"
+                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/background2.png",
+                "assets/images/backgrounds/background2.png",
+                (currentLevel == 1) ? "assets/images/backgrounds/snow/background2.png" : "assets/images/backgrounds/snow_forest/background2.png",
+                "assets/images/backgrounds/snow/background2.png"
             };
-        } else if (layer.name == "mountains") {
+        } else if (layer.name == "background3") {
             layerPaths = {
-                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/mountains.png",
-                "assets/images/backgrounds/mountains.png",
-                "assets/images/backgrounds/forest/mountains.png",
-                "assets/images/backgrounds/desert/mountains.png",
-                "assets/images/backgrounds/snow/mountains.png"
+                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/background3.png",
+                "assets/images/backgrounds/background3.png",
+                (currentLevel == 1) ? "assets/images/backgrounds/snow/background3.png" : "assets/images/backgrounds/snow_forest/background3.png",
+                "assets/images/backgrounds/snow/background3.png"
             };
-        } else if (layer.name == "ground") {
+        } else if (layer.name == "background4") {
             layerPaths = {
-                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/ground.png",
-                "assets/images/backgrounds/ground.png",
-                "assets/images/backgrounds/forest/ground.png",
-                "assets/images/backgrounds/desert/ground.png",
-                "assets/images/backgrounds/snow/ground.png",
+                "assets/images/backgrounds/" + std::to_string(currentLevel) + "/background4.png",
+                "assets/images/backgrounds/background4.png",
+                (currentLevel == 1) ? "assets/images/backgrounds/snow/background4.png" : "assets/images/backgrounds/snow_forest/background4.png",
+                "assets/images/backgrounds/snow/background4.png",
                 // Fallback to the original background texture
                 "assets/images/backgrounds/background.png",
                 "../assets/images/backgrounds/background.png"
@@ -2458,7 +2124,8 @@ void Game::loadBackgroundLayers() {
         bool layerLoaded = false;
         for (const auto& path : layerPaths) {
             try {
-                std::string textureKey = "bg_" + layer.name;
+                // Use level-specific texture keys to avoid caching issues
+                std::string textureKey = "bg_" + layer.name + "_level" + std::to_string(currentLevel);
                 assets.loadTexture(textureKey, path);
                 layer.sprite = std::make_unique<sf::Sprite>(assets.getTexture(textureKey));
                 layer.textureSize = assets.getTexture(textureKey).getSize();
@@ -2469,6 +2136,7 @@ void Game::loadBackgroundLayers() {
                 logInfo("  Texture size: " + std::to_string(layer.textureSize.x) + "x" + std::to_string(layer.textureSize.y));
                 break;
             } catch (const std::exception& e) {
+                logWarning("Failed to load " + layer.name + " from " + path + ": " + std::string(e.what()));
                 // Continue to next path
             }
         }
@@ -2498,7 +2166,7 @@ void Game::drawBackgroundLayers() {
     float topY = viewCenter.y - viewSize.y / 2.0f;
     float bottomY = viewCenter.y + viewSize.y / 2.0f;
     
-    // Draw layers from back to front (sky -> clouds -> mountains -> ground)
+    // Draw layers from back to front (background1 -> background2 -> background3 -> background4)
     for (auto& layer : backgroundLayers) {
         if (!layer.isLoaded || !layer.sprite) continue;
         
@@ -2514,8 +2182,8 @@ void Game::drawBackgroundLayers() {
         
         // Choose scaling strategy based on layer type
         float uniformScale;
-        if (layer.name == "sky") {
-            // Sky should completely fill the screen
+        if (layer.name == "background1") {
+            // Background1 should completely fill the screen
             uniformScale = std::max(scaleX, scaleY);
         } else {
             // Other layers can use different strategies
@@ -2534,18 +2202,18 @@ void Game::drawBackgroundLayers() {
             float startX = std::floor((leftX + parallaxOffsetX) / scaledWidth) * scaledWidth - parallaxOffsetX;
             float startY;
             
-            // Special positioning for ground layer to align with actual ground platforms
-            if (layer.name == "ground") {
-                // Position ground layer to align with the actual ground platforms
+            // Special positioning for background4 layer to align with actual ground platforms
+            if (layer.name == "background4") {
+                // Position background4 layer to align with the actual ground platforms
                 // The ground platforms are positioned at WINDOW_HEIGHT - GROUND_HEIGHT (y=540)
                 float groundLevel = WINDOW_HEIGHT - GROUND_HEIGHT; // This is where the platforms are (y=540)
                 
-                // Position the ground texture to cover the ground platforms area
-                // We want the ground texture to be positioned so it covers the platform area
+                // Position the background4 texture to cover the ground platforms area
+                // We want the background4 texture to be positioned so it covers the platform area
                 // The platforms are 60px high starting at y=540, so we need to cover y=540 to y=600
                 startY = groundLevel - (scaledHeight * 0.8f); // Start 80% of texture height above ground level to ensure coverage
                 
-                // Apply parallax effect for ground layer (it should move with camera)
+                // Apply parallax effect for background4 layer (it should move with camera)
                 startY += parallaxOffsetY;
             } else {
                 // Normal positioning for other layers
