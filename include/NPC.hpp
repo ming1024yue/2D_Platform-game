@@ -21,6 +21,7 @@ namespace NPCSystem {
         std::unique_ptr<sf::Sprite> sprite;
         bool facingLeft;
         std::unique_ptr<Animation> animation;  // Add animation support
+        bool isInteracting;  // Flag to indicate if NPC is interacting with player
     };
 }
 

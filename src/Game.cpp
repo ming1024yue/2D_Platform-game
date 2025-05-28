@@ -2318,11 +2318,6 @@ void Game::checkPlayerNPCCollision() {
     const auto& npcs = npcManager->getAllNPCs();
     sf::FloatRect playerBounds = player.getGlobalBounds();
     
-    // Debug log player bounds
-    logDebug("Player bounds - pos: (" + std::to_string(playerBounds.position.x) + ", " + 
-             std::to_string(playerBounds.position.y) + "), size: (" + 
-             std::to_string(playerBounds.size.x) + ", " + std::to_string(playerBounds.size.y) + ")");
-    
     for (const auto& npc : npcs) {
         if (!npc.isActive || !npc.sprite) continue;
         
@@ -2343,27 +2338,27 @@ void Game::checkPlayerNPCCollision() {
             sf::Vector2f(width, height)
         );
         
-        // Debug log NPC bounds
-        logDebug("NPC bounds - pos: (" + std::to_string(npcBounds.position.x) + ", " + 
-                 std::to_string(npcBounds.position.y) + "), size: (" + 
-                 std::to_string(npcBounds.size.x) + ", " + std::to_string(npcBounds.size.y) + ")");
+        // Check for collision
+        bool isColliding = rectsIntersect(playerBounds, npcBounds);
         
-        if (rectsIntersect(playerBounds, npcBounds)) {
-            logInfo("Collision detected between player and NPC!");
-            // Handle collision with NPC
-            // Push player away from NPC with more force
-            if (player.getPosition().x < npcBounds.position.x) {
-                // Push player left with more force
-                float pushDistance = npcBounds.position.x - playerBounds.size.x - 10.f;
+        // Calculate center points for distance check
+        float playerCenterX = playerBounds.position.x + playerBounds.size.x / 2.0f;
+        float playerCenterY = playerBounds.position.y + playerBounds.size.y / 2.0f;
+        float npcCenterX = npc.x;
+        float npcCenterY = npc.y;
+        
+        // Update interaction state based on collision and distance
+        npcManager->handleInteraction(npc.id, playerCenterX, playerCenterY);
+        
+        if (isColliding) {
+            // Push player away from NPC to prevent overlap
+            if (playerCenterX < npcCenterX) {
+                float pushDistance = npcBounds.position.x - (playerBounds.size.x + 5.f);
                 player.setPosition(sf::Vector2f(pushDistance, player.getPosition().y));
-                logDebug("Pushing player left to: " + std::to_string(pushDistance));
             } else {
-                // Push player right with more force
-                float pushDistance = npcBounds.position.x + npcBounds.size.x + 10.f;
+                float pushDistance = npcBounds.position.x + npcBounds.size.x + 5.f;
                 player.setPosition(sf::Vector2f(pushDistance, player.getPosition().y));
-                logDebug("Pushing player right to: " + std::to_string(pushDistance));
             }
-            break;
         }
     }
 }

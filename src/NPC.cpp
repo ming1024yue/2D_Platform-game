@@ -2,6 +2,7 @@
 #include <cmath>
 #include <algorithm>
 #include <unordered_map>
+#include <iostream>
 
 NPC::NPC(AssetManager& assetManager, RenderingSystem& renderSystem) 
     : nextId(0), assetManager(assetManager), renderSystem(renderSystem) {}
@@ -18,6 +19,7 @@ int NPC::createNPC(const std::string& name, const std::string& textureName, floa
     npc.isActive = true;
     npc.currentState = "idle";
     npc.facingLeft = false;
+    npc.isInteracting = false;  // Initialize as not interacting
     
     // Initialize animation
     npc.animation = std::make_unique<Animation>();
@@ -69,7 +71,22 @@ void NPC::updateAll(float deltaTime) {
     for (auto& npc : npcs) {
         if (!npc.isActive) continue;
         
-        // Update NPC state first
+        // If NPC is interacting, force idle state and skip movement
+        if (npc.isInteracting) {
+            npc.currentState = "idle";
+            updateNPCAnimation(npc, deltaTime);
+            
+            // Update sprite position and scale even when idle
+            if (npc.sprite) {
+                npc.sprite->setPosition(sf::Vector2f(npc.x, npc.y));
+                sf::Vector2f scale = npc.sprite->getScale();
+                scale.x = std::abs(scale.x) * (npc.facingLeft ? -1.f : 1.f);
+                npc.sprite->setScale(scale);
+            }
+            continue;  // Skip the rest of the update for this NPC
+        }
+        
+        // Update NPC state
         updateNPCState(npc);
         
         // Store initial position if not set
@@ -80,7 +97,7 @@ void NPC::updateAll(float deltaTime) {
         
         float initialX = initialPositions[npc.id];
         
-        // Update position based on current state
+        // Only move if in walking state
         if (npc.currentState == "walking") {
             static const float WALK_SPEED = 50.0f; // pixels per second
             static const float WALK_DISTANCE = 100.0f; // pixels
@@ -232,15 +249,22 @@ void NPC::handleInteraction(int npcId, float playerX, float playerY) {
     auto* npc = getNPCById(npcId);
     if (!npc || !npc->isActive) return;
 
-    float distance = calculateDistance(playerX, playerY, npc->x, npc->y);
+    // Calculate distance between centers
+    float dx = playerX - npc->x;
+    float dy = playerY - npc->y;
+    float distance = std::sqrt(dx * dx + dy * dy);
     
-    // Example interaction logic
-    if (distance < 2.0f) {  // Interaction range
-        // TODO: Implement interaction logic
-        // - Start dialogue
-        // - Trade
-        // - Quest giving
-        // etc.
+    // Use interaction range that matches sprite size
+    static const float INTERACTION_RANGE = 64.0f;
+    
+    bool wasInteracting = npc->isInteracting;
+    bool shouldInteract = distance < INTERACTION_RANGE;
+    
+    if (shouldInteract) {
+        npc->isInteracting = true;
+        npc->currentState = "idle";
+    } else {
+        npc->isInteracting = false;
     }
 }
 
@@ -265,6 +289,11 @@ void NPC::updateNPCAnimation(NPCData& npc, float deltaTime) {
 }
 
 void NPC::updateNPCState(NPCData& npc) {
+    // Skip state updates if interacting
+    if (npc.isInteracting) {
+        return;
+    }
+
     // Simple state machine for NPC behavior
     static std::unordered_map<int, float> stateTimers;
     static const float IDLE_DURATION = 2.0f;  // seconds
