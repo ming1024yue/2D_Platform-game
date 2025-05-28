@@ -2341,14 +2341,12 @@ void Game::checkPlayerNPCCollision() {
         // Check for collision
         bool isColliding = rectsIntersect(playerBounds, npcBounds);
         
-        // Calculate center points for distance check
+        // Calculate center points for collision response
         float playerCenterX = playerBounds.position.x + playerBounds.size.x / 2.0f;
-        float playerCenterY = playerBounds.position.y + playerBounds.size.y / 2.0f;
         float npcCenterX = npc.x;
-        float npcCenterY = npc.y;
         
-        // Update interaction state based on collision and distance
-        npcManager->handleInteraction(npc.id, playerCenterX, playerCenterY);
+        // Handle NPC interaction using player bounds
+        npcManager->handleInteraction(npc.id, playerBounds);
         
         if (isColliding) {
             // Push player away from NPC to prevent overlap

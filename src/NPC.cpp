@@ -4,8 +4,29 @@
 #include <unordered_map>
 #include <iostream>
 
+// Constants
+static const float VERTICAL_OFFSET = 50.0f;  // Distance above NPC for message box
+
+// Helper function for rectangle intersection (for SFML 3.x compatibility)
+static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
+    return a.position.x < b.position.x + b.size.x &&
+           a.position.x + a.size.x > b.position.x &&
+           a.position.y < b.position.y + b.size.y &&
+           a.position.y + a.size.y > b.position.y;
+}
+
 NPC::NPC(AssetManager& assetManager, RenderingSystem& renderSystem) 
-    : nextId(0), assetManager(assetManager), renderSystem(renderSystem) {}
+    : nextId(0), assetManager(assetManager), renderSystem(renderSystem) {
+    
+    // Load the pixel font
+    if (!messageFont.openFromFile("assets/fonts/pixel.ttf")) {
+        std::cerr << "Error loading pixel font!" << std::endl;
+        // Try alternative paths
+        if (!messageFont.openFromFile("../assets/fonts/pixel.ttf")) {
+            std::cerr << "Failed to load pixel font from alternative path!" << std::endl;
+        }
+    }
+}
 
 NPC::~NPC() {}
 
@@ -19,7 +40,7 @@ int NPC::createNPC(const std::string& name, const std::string& textureName, floa
     npc.isActive = true;
     npc.currentState = "idle";
     npc.facingLeft = false;
-    npc.isInteracting = false;  // Initialize as not interacting
+    npc.isInteracting = false;
     
     // Initialize animation
     npc.animation = std::make_unique<Animation>();
@@ -39,6 +60,9 @@ int NPC::createNPC(const std::string& name, const std::string& textureName, floa
     npc.sprite->setOrigin(sf::Vector2f(bounds.size.x / 2.f, bounds.size.y / 2.f));
     npc.sprite->setScale(sf::Vector2f(2.0f, 2.0f));
     npc.sprite->setPosition(sf::Vector2f(x, y));
+    
+    // Initialize collision bounds
+    updateCollisionBounds(npc);
     
     // Add to NPCs vector
     int id = npc.id;
@@ -71,6 +95,17 @@ void NPC::updateAll(float deltaTime) {
     for (auto& npc : npcs) {
         if (!npc.isActive) continue;
         
+        // Update message timer
+        if (npc.messageTimer > 0) {
+            npc.messageTimer -= deltaTime;
+            if (npc.messageTimer <= 0) {
+                // Clear both message and visual elements together
+                npc.currentMessage = "";
+                npc.messageBox.reset();
+                npc.messageText.reset();
+            }
+        }
+        
         // If NPC is interacting, force idle state and skip movement
         if (npc.isInteracting) {
             npc.currentState = "idle";
@@ -82,6 +117,8 @@ void NPC::updateAll(float deltaTime) {
                 sf::Vector2f scale = npc.sprite->getScale();
                 scale.x = std::abs(scale.x) * (npc.facingLeft ? -1.f : 1.f);
                 npc.sprite->setScale(scale);
+                // Update collision bounds even when idle
+                updateCollisionBounds(npc);
             }
             continue;  // Skip the rest of the update for this NPC
         }
@@ -130,6 +167,8 @@ void NPC::updateAll(float deltaTime) {
             sf::Vector2f scale = npc.sprite->getScale();
             scale.x = std::abs(scale.x) * (npc.facingLeft ? -1.f : 1.f);
             npc.sprite->setScale(scale);
+            // Always update collision bounds after moving
+            updateCollisionBounds(npc);
         }
     }
 }
@@ -152,6 +191,34 @@ void NPC::renderAll() {
         
         // Render the animated sprite
         renderSystem.renderEntity(*renderSystem.getRenderTarget(), renderSprite, sf::Vector2f(npc.x, npc.y));
+        
+        // Render message box and text if there is one
+        if (!npc.currentMessage.empty() && npc.messageBox && npc.messageText) {
+            // Position the message box above the NPC
+            sf::Vector2f boxPos(npc.x, npc.y);
+            npc.messageBox->setPosition(boxPos);
+            
+            // Draw the box first
+            renderSystem.getRenderTarget()->draw(*npc.messageBox);
+            
+            // Get the actual box bounds
+            sf::FloatRect boxBounds = npc.messageBox->getGlobalBounds();
+            sf::FloatRect textBounds = npc.messageText->getLocalBounds();
+            
+            // Calculate the box's actual position (accounting for origin offset)
+            float actualBoxTop = boxPos.y - (boxBounds.size.y + VERTICAL_OFFSET);
+            
+            // Add padding inside the box
+            const float PADDING = 10.0f;
+            
+            // Calculate text position to be centered inside the box with padding
+            float textX = boxPos.x - (textBounds.size.x / 2.0f);
+            float textY = actualBoxTop + PADDING + (textBounds.size.y / 2.0f)-10;
+            
+            // Set text position and draw it
+            npc.messageText->setPosition(sf::Vector2f(textX, textY));
+            renderSystem.getRenderTarget()->draw(*npc.messageText);
+        }
     }
 }
 
@@ -161,6 +228,7 @@ void NPC::setNPCPosition(int id, float x, float y) {
         npc->y = y;
         if (npc->sprite) {
             npc->sprite->setPosition(sf::Vector2f(x, y));
+            updateCollisionBounds(*npc);  // Update collision bounds when position changes
         }
     }
 }
@@ -221,18 +289,20 @@ NPC::NPCData* NPC::getNPCById(int id) {
 }
 
 std::vector<std::reference_wrapper<const NPC::NPCData>> NPC::getNPCsInRange(float x, float y, float radius) const {
-    std::vector<std::reference_wrapper<const NPCData>> result;
-    float radiusSquared = radius * radius;
+    std::vector<std::reference_wrapper<const NPCData>> nearbyNPCs;
+    float radiusSquared = radius * radius;  // Pre-calculate squared radius
     
     for (const auto& npc : npcs) {
         if (!npc.isActive) continue;
         
-        if (calculateDistance(x, y, npc.x, npc.y) <= radiusSquared) {
-            result.push_back(std::cref(npc));
+        // Use the calculateDistance helper function
+        float distance = calculateDistance(x, y, npc.x, npc.y);
+        if (distance <= radius) {
+            nearbyNPCs.push_back(std::ref(npc));
         }
     }
     
-    return result;
+    return nearbyNPCs;
 }
 
 void NPC::updateAI(float deltaTime) {
@@ -245,33 +315,118 @@ void NPC::updateAI(float deltaTime) {
     // - Engaging in dialogue
 }
 
-void NPC::handleInteraction(int npcId, float playerX, float playerY) {
-    auto* npc = getNPCById(npcId);
-    if (!npc || !npc->isActive) return;
+void NPC::updateCollisionBounds(NPCData& npc) {
+    if (!npc.sprite) return;
+    
+    // Get the sprite's bounds
+    sf::FloatRect spriteBounds = npc.sprite->getGlobalBounds();
+    
+    // Calculate collision box dimensions (80% of sprite size)
+    float width = spriteBounds.size.x * 0.8f;
+    float height = spriteBounds.size.y * 0.8f;
+    
+    // Calculate the center of the sprite
+    float spriteCenterX = npc.x;
+    float spriteCenterY = npc.y;
+    
+    // Position the collision box centered on the sprite
+    float collisionX = spriteCenterX - width/2.0f;
+    float collisionY = spriteCenterY - height/2.0f;
+    
+    // Create collision bounds centered on the sprite
+    npc.collisionBounds = sf::FloatRect(
+        sf::Vector2f(collisionX, collisionY),
+        sf::Vector2f(width, height)
+    );
+}
 
-    // Calculate distance between centers
-    float dx = playerX - npc->x;
-    float dy = playerY - npc->y;
-    float distance = std::sqrt(dx * dx + dy * dy);
+void NPC::handleInteraction(int npcId, const sf::FloatRect& playerBounds) {
+    NPCData* npc = getNPCById(npcId);
+    if (!npc || !npc->isActive || !npc->sprite) return;
     
-    // Use interaction range that matches sprite size
-    static const float INTERACTION_RANGE = 64.0f;
+    // Update collision bounds to ensure they're current
+    updateCollisionBounds(*npc);
     
-    bool wasInteracting = npc->isInteracting;
-    bool shouldInteract = distance < INTERACTION_RANGE;
+    // Add a small tolerance to the collision check (5 pixels)
+    const float INTERACTION_TOLERANCE = 5.0f;
+    sf::FloatRect expandedNPCBounds = npc->collisionBounds;
+    expandedNPCBounds.position.x -= INTERACTION_TOLERANCE;
+    expandedNPCBounds.position.y -= INTERACTION_TOLERANCE;
+    expandedNPCBounds.size.x += INTERACTION_TOLERANCE * 2;
+    expandedNPCBounds.size.y += INTERACTION_TOLERANCE * 2;
     
-    if (shouldInteract) {
-        npc->isInteracting = true;
-        npc->currentState = "idle";
+    // Check for collision using the helper function with expanded bounds
+    if (rectsIntersect(expandedNPCBounds, playerBounds)) {
+        // If not already interacting, start interaction
+        if (!npc->isInteracting) {
+            npc->isInteracting = true;
+            displayMessage(npcId, "Hello there!", 3.0f);
+            
+            // Update facing direction based on player position relative to NPC center
+            float npcCenterX = npc->x;
+            float playerCenterX = playerBounds.position.x + playerBounds.size.x/2;
+            npc->facingLeft = (playerCenterX < npcCenterX);
+            
+            // Update sprite scale immediately to face player
+            if (npc->sprite) {
+                sf::Vector2f scale = npc->sprite->getScale();
+                scale.x = std::abs(scale.x) * (npc->facingLeft ? -1.f : 1.f);
+                npc->sprite->setScale(scale);
+            }
+        }
     } else {
-        npc->isInteracting = false;
+        // Add a larger tolerance for maintaining interaction (10 pixels)
+        const float MAINTAIN_INTERACTION_TOLERANCE = 10.0f;
+        expandedNPCBounds = npc->collisionBounds;
+        expandedNPCBounds.position.x -= MAINTAIN_INTERACTION_TOLERANCE;
+        expandedNPCBounds.position.y -= MAINTAIN_INTERACTION_TOLERANCE;
+        expandedNPCBounds.size.x += MAINTAIN_INTERACTION_TOLERANCE * 2;
+        expandedNPCBounds.size.y += MAINTAIN_INTERACTION_TOLERANCE * 2;
+        
+        // Only end interaction if player is outside the expanded maintenance bounds
+        if (npc->isInteracting && !rectsIntersect(expandedNPCBounds, playerBounds)) {
+            npc->isInteracting = false;
+            npc->currentMessage = "";
+            npc->messageTimer = 0;
+        }
+    }
+}
+
+void NPC::displayMessage(int npcId, const std::string& message, float duration) {
+    if (auto* npc = getNPCById(npcId)) {
+        npc->currentMessage = message;
+        npc->messageTimer = duration;
+        
+        // Create message box with appropriate size for text
+        const float PADDING = 10.0f;  // Padding around text
+        const float MIN_BOX_WIDTH = 200.0f;
+        const float MIN_BOX_HEIGHT = 40.0f;
+        
+        // Create text object with font first to measure its size
+        npc->messageText = std::make_unique<sf::Text>(messageFont, message, 24);
+        npc->messageText->setFillColor(sf::Color::Black);
+        npc->messageText->setLineSpacing(1.2f);
+        
+        // Get text bounds for sizing the box
+        sf::FloatRect textBounds = npc->messageText->getLocalBounds();
+        float boxWidth = std::max(MIN_BOX_WIDTH, textBounds.size.x + PADDING * 2);
+        float boxHeight = std::max(MIN_BOX_HEIGHT, textBounds.size.y + PADDING * 2);
+        
+        // Create and configure message box
+        npc->messageBox = std::make_unique<sf::RectangleShape>(sf::Vector2f(boxWidth, boxHeight));
+        npc->messageBox->setFillColor(sf::Color(255, 255, 255, 230));
+        npc->messageBox->setOutlineColor(sf::Color::Black);
+        npc->messageBox->setOutlineThickness(2.0f);
+        
+        // Set the origin for the message box (center bottom)
+        npc->messageBox->setOrigin(sf::Vector2f(boxWidth / 2.0f, boxHeight + VERTICAL_OFFSET));
     }
 }
 
 float NPC::calculateDistance(float x1, float y1, float x2, float y2) const {
     float dx = x2 - x1;
     float dy = y2 - y1;
-    return dx * dx + dy * dy;  // Return squared distance for efficiency
+    return std::sqrt(dx * dx + dy * dy);
 }
 
 void NPC::updateNPCAnimation(NPCData& npc, float deltaTime) {
