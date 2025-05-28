@@ -44,7 +44,7 @@ private:
     void update();
     void draw();
     void initializePlatforms();
-    void initializeLadders();
+
     void initializeEnemies();
     void initializeUI();
     void initializeMiniMap();
@@ -55,7 +55,7 @@ private:
     void checkGameOver();
     void resetGame();
     void nextLevel();
-    void jumpToLevel(int level);  // New method for jumping to specific levels
+    void jumpToLevel(int level, bool fromPreviousLevel = false);  // Method for jumping to specific levels
     void checkLevelCompletion();
     void loadAssets();
     void drawDebugBoxes();

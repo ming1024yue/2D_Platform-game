@@ -96,7 +96,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
     loadAssets();
     
     initializePlatforms();
-    initializeLadders();
+    
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
@@ -432,10 +432,7 @@ void Game::initializePlatforms() {
 
 
 
-void Game::initializeLadders() {
-    // Clear existing ladders - no ladders needed for puzzle-based gameplay
-    ladders.clear();
-}
+
 
 void Game::initializeEnemies() {
     // Clear existing enemies first
@@ -556,7 +553,7 @@ void Game::resetGame() {
     
     // Reinitialize everything
     initializePlatforms();
-    initializeLadders();
+    
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
@@ -748,26 +745,50 @@ void Game::initializeMiniMap() {
 }
 
 void Game::checkLevelCompletion() {
-    // Only check for level completion if player is on ground
-    if (!player.isOnGround()) {
-        return;
-    }
-    
     // Check if player has reached the end of the level (right edge)
     if (player.getPosition().x >= LEVEL_WIDTH - player.getSize().x - 50.f) {
-        // Player has reached the end of the level
-        currentState = GameState::LevelTransition;
-        transitionTimer = LEVEL_TRANSITION_DURATION;
-        
-        // Set up level transition text
-        levelText.setString("Level " + std::to_string(currentLevel) + " Completed!");
-        
-        // Center the text
-        sf::FloatRect levelBounds = levelText.getGlobalBounds();
-        levelText.setPosition(sf::Vector2f(
-            WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
-            WINDOW_HEIGHT / 2.f - levelBounds.size.y / 2.f
-        ));
+        // Only allow transition if player is on ground (walking)
+        if (player.isOnGround()) {
+            // Player has reached the end of the level
+            currentState = GameState::LevelTransition;
+            transitionTimer = LEVEL_TRANSITION_DURATION;
+            
+            // Set up level transition text
+            levelText.setString("Level " + std::to_string(currentLevel) + " Completed!");
+            
+            // Center the text
+            sf::FloatRect levelBounds = levelText.getGlobalBounds();
+            levelText.setPosition(sf::Vector2f(
+                WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
+                WINDOW_HEIGHT / 2.f - levelBounds.size.y / 2.f
+            ));
+            
+            // Go to next level
+            nextLevel();
+        }
+    }
+    
+    // Check if player has reached the start of the level (left edge) and we're not in level 1
+    if (currentLevel > 1 && player.getPosition().x <= 10.f) {
+        // Only allow transition if player is on ground (walking)
+        if (player.isOnGround()) {
+            // Player has reached the start of the level
+            currentState = GameState::LevelTransition;
+            transitionTimer = LEVEL_TRANSITION_DURATION;
+            
+            // Set up level transition text
+            levelText.setString("Going back to Level " + std::to_string(currentLevel - 1));
+            
+            // Center the text
+            sf::FloatRect levelBounds = levelText.getGlobalBounds();
+            levelText.setPosition(sf::Vector2f(
+                WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
+                WINDOW_HEIGHT / 2.f - levelBounds.size.y / 2.f
+            ));
+
+            // Go back to previous level, indicating we're coming from a higher level
+            jumpToLevel(currentLevel - 1, true);
+        }
     }
 }
 
@@ -883,7 +904,7 @@ void Game::nextLevel() {
     
     // Reinitialize game elements with new variations based on level
     initializePlatforms();
-    initializeLadders();
+    
     initializeEnemies();
     initializeMiniMap();
     
@@ -1721,7 +1742,7 @@ void Game::syncPlatformsWithPhysics() {
     logDebug("Synchronized " + std::to_string(platforms.size()) + " platforms with physics components");
 }
 
-void Game::jumpToLevel(int level) {
+void Game::jumpToLevel(int level, bool fromPreviousLevel) {
     // Ensure level is valid (at least 1)
     if (level < 1) {
         level = 1;
@@ -1730,8 +1751,14 @@ void Game::jumpToLevel(int level) {
     // Set the current level
     currentLevel = level;
     
-    // Reset player position
-    player.reset(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f);
+    // Set player position based on whether we're coming from a higher level
+    if (fromPreviousLevel) {
+        // Place player near the end of the level when coming back
+        player.reset(LEVEL_WIDTH - 150.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f);
+    } else {
+        // Place player at the start of the level
+        player.reset(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f);
+    }
     player.setCollisionBoxSize(sf::Vector2f(28.f, 28.f));
     
     // Reset view
@@ -1851,7 +1878,7 @@ void Game::jumpToLevel(int level) {
     
     // Reinitialize game elements with new variations based on level
     initializePlatforms();
-    initializeLadders();
+
     initializeEnemies();
     initializeUI();
     initializeMiniMap();

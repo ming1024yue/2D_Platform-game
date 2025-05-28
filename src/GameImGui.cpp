@@ -89,6 +89,34 @@ void Game::handleEvents() {
                 }
             }
             
+            // Level switching with Shift + Arrow keys
+            bool shiftPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) || 
+                              sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift);
+            
+            // Only allow level switching in Playing state
+            if (shiftPressed && currentState == GameState::Playing) {
+                if (key->code == sf::Keyboard::Key::Left) {
+                    // Switch to previous level if we're above level 1
+                    if (currentLevel > 1) {
+                        int targetLevel = currentLevel - 1;
+                        logInfo("Attempting to switch from level " + std::to_string(currentLevel) + 
+                               " to level " + std::to_string(targetLevel));
+                        currentState = GameState::LevelTransition;
+                        jumpToLevel(targetLevel);
+                    } else {
+                        logInfo("Already at level 1, cannot go back further");
+                    }
+                }
+                else if (key->code == sf::Keyboard::Key::Right) {
+                    // Switch to next level
+                    int targetLevel = currentLevel + 1;
+                    logInfo("Attempting to switch from level " + std::to_string(currentLevel) + 
+                           " to level " + std::to_string(targetLevel));
+                    currentState = GameState::LevelTransition;
+                    jumpToLevel(targetLevel);
+                }
+            }
+            
             // Toggle minimap with M key
             if (key->code == sf::Keyboard::Key::M) {
                 showMiniMap = !showMiniMap;
