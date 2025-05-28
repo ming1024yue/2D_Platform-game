@@ -167,10 +167,25 @@ void Game::update() {
         // Check if game is over
         checkGameOver();
         
-        // Check if level is complete
+        // Check if level is complete (reached right edge)
         checkLevelCompletion();
         
-
+        // Check if player should go to previous level (reached left edge)
+        if (currentLevel > 1 && player.getPosition().x <= 10.f && player.isOnGround()) {
+            // Player has reached the left edge of the level
+            currentState = GameState::LevelTransition;
+            transitionTimer = LEVEL_TRANSITION_DURATION;
+            
+            // Set up level transition text
+            levelText.setString("Going to Level " + std::to_string(currentLevel - 1));
+            
+            // Center the text
+            sf::FloatRect levelBounds = levelText.getGlobalBounds();
+            levelText.setPosition(sf::Vector2f(
+                WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
+                WINDOW_HEIGHT / 2.f - levelBounds.size.y / 2.f
+            ));
+        }
         
         // Update UI
         updateUI();
@@ -187,7 +202,12 @@ void Game::update() {
         // Handle level transition timer
         transitionTimer -= deltaTime;
         if (transitionTimer <= 0) {
-            nextLevel();
+            // Check if we're going forward or backward
+            if (player.getPosition().x >= LEVEL_WIDTH - player.getSize().x - 50.f) {
+                nextLevel();
+            } else if (player.getPosition().x <= 10.f) {
+                previousLevel();
+            }
         }
     }
 }
@@ -745,50 +765,26 @@ void Game::initializeMiniMap() {
 }
 
 void Game::checkLevelCompletion() {
-    // Check if player has reached the end of the level (right edge)
-    if (player.getPosition().x >= LEVEL_WIDTH - player.getSize().x - 50.f) {
-        // Only allow transition if player is on ground (walking)
-        if (player.isOnGround()) {
-            // Player has reached the end of the level
-            currentState = GameState::LevelTransition;
-            transitionTimer = LEVEL_TRANSITION_DURATION;
-            
-            // Set up level transition text
-            levelText.setString("Level " + std::to_string(currentLevel) + " Completed!");
-            
-            // Center the text
-            sf::FloatRect levelBounds = levelText.getGlobalBounds();
-            levelText.setPosition(sf::Vector2f(
-                WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
-                WINDOW_HEIGHT / 2.f - levelBounds.size.y / 2.f
-            ));
-            
-            // Go to next level
-            nextLevel();
-        }
+    // Only check for level completion if player is on ground
+    if (!player.isOnGround()) {
+        return;
     }
     
-    // Check if player has reached the start of the level (left edge) and we're not in level 1
-    if (currentLevel > 1 && player.getPosition().x <= 10.f) {
-        // Only allow transition if player is on ground (walking)
-        if (player.isOnGround()) {
-            // Player has reached the start of the level
-            currentState = GameState::LevelTransition;
-            transitionTimer = LEVEL_TRANSITION_DURATION;
-            
-            // Set up level transition text
-            levelText.setString("Going back to Level " + std::to_string(currentLevel - 1));
-            
-            // Center the text
-            sf::FloatRect levelBounds = levelText.getGlobalBounds();
-            levelText.setPosition(sf::Vector2f(
-                WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
-                WINDOW_HEIGHT / 2.f - levelBounds.size.y / 2.f
-            ));
-
-            // Go back to previous level, indicating we're coming from a higher level
-            jumpToLevel(currentLevel - 1, true);
-        }
+    // Check if player has reached the end of the level (right edge)
+    if (player.getPosition().x >= LEVEL_WIDTH - player.getSize().x - 50.f) {
+        // Player has reached the end of the level
+        currentState = GameState::LevelTransition;
+        transitionTimer = LEVEL_TRANSITION_DURATION;
+        
+        // Set up level transition text
+        levelText.setString("Level " + std::to_string(currentLevel) + " Completed!");
+        
+        // Center the text
+        sf::FloatRect levelBounds = levelText.getGlobalBounds();
+        levelText.setPosition(sf::Vector2f(
+            WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
+            WINDOW_HEIGHT / 2.f - levelBounds.size.y / 2.f
+        ));
     }
 }
 
@@ -904,11 +900,12 @@ void Game::nextLevel() {
     
     // Reinitialize game elements with new variations based on level
     initializePlatforms();
-    
+
     initializeEnemies();
+    initializeUI();
     initializeMiniMap();
     
-    // For higher levels, increase difficulty and add level-specific features
+    // Apply level-specific physics and difficulty
     if (currentLevel > 1) {
         // Add extra enemies based on level
         for (int i = 0; i < currentLevel; i++) {
@@ -923,11 +920,157 @@ void Game::nextLevel() {
     physicsSystem.setGravity(15.0f);  // Higher gravity to keep player grounded
     physicsSystem.setJumpForce(200.f); // Much lower jump force for puzzle gameplay
     
-    // Ensure physics components for enemies are reinitialized
+    // Initialize physics system
+    physicsSystem.initialize();
+    physicsSystem.initializePlayer(player);
+    physicsSystem.initializePlatforms(platforms);
     physicsSystem.initializeEnemies(enemies);
     
-    // Update minimap to include new enemies
+    logInfo("Jumped to level " + std::to_string(currentLevel) + " for testing");
+}
+
+void Game::previousLevel() {
+    // Don't go below level 1
+    if (currentLevel <= 1) {
+        logWarning("Already at level 1, cannot go to previous level");
+        return;
+    }
+    
+    // Decrement level
+    currentLevel--;
+    
+    // Reset player position to right side of level (since we're going backwards)
+    player.setPosition(sf::Vector2f(LEVEL_WIDTH - 100.f, WINDOW_HEIGHT / 2.f));
+    
+    // Reset view
+    gameView.setCenter(sf::Vector2f(WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f));
+    
+    // Reset game state
+    currentState = GameState::Playing;
+    
+    // Update level text
+    levelText.setString("Level " + std::to_string(currentLevel));
+    sf::FloatRect levelBounds = levelText.getGlobalBounds();
+    levelText.setPosition(sf::Vector2f(
+        WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
+        20.f
+    ));
+    
+    // Change background and theme based on level
+    try {
+        // Different backgrounds for each level
+        std::string levelBackgroundPath;
+        std::vector<std::string> alternativePaths;
+        
+        // Both levels use snow theme with different variations
+        if (currentLevel == 1) {
+            // Level 1 - Snow Mountain
+            levelBackgroundPath = "assets/images/backgrounds/snow/snow_background.png";
+            platformColor = sf::Color(200, 220, 255); // Light blue for snow mountain
+            alternativePaths = {
+                "assets/images/backgrounds/snow_background.png",
+                "assets/images/backgrounds/background.png",
+                "../assets/images/backgrounds/background.png"
+            };
+        } else {
+            // Level 2+ - Snow Forest
+            levelBackgroundPath = "assets/images/backgrounds/snow_forest/snow_forest_background.png";
+            platformColor = sf::Color(180, 200, 240); // Slightly different blue for snow forest
+            alternativePaths = {
+                "assets/images/backgrounds/snow_forest_background.png",
+                "assets/images/backgrounds/snow/snow_background.png",
+                "assets/images/backgrounds/background.png",
+                "../assets/images/backgrounds/background.png"
+            };
+        }
+        
+        // Try to load the level-specific background
+        bool loaded = false;
+        try {
+            assets.loadTexture("background", levelBackgroundPath);
+            logInfo("Successfully loaded background: " + levelBackgroundPath);
+            loaded = true;
+        } 
+        catch (const std::exception& e) {
+            logError("Failed to load primary background: " + std::string(e.what()));
+            
+            // Try alternative paths
+            for (const auto& path : alternativePaths) {
+                try {
+                    assets.loadTexture("background", path);
+                    logInfo("Successfully loaded alternative background: " + path);
+                    loaded = true;
+                    break;
+                } catch (const std::exception& innerE) {
+                    logWarning("Failed to load alternative background from " + path + ": " + std::string(innerE.what()));
+                }
+            }
+        }
+        
+        // Reload the layered background system for the new level
+        if (loaded) {
+            loadBackgroundLayers();
+            logInfo("Reloaded layered backgrounds for level " + std::to_string(currentLevel));
+        }
+        // If we couldn't load a background texture, use the placeholder
+        else {
+            useBackgroundPlaceholder = true;
+            
+            // Adjust placeholder color based on level theme
+            if (currentLevel % 3 == 1) { // Forest
+                backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
+            } 
+            else if (currentLevel % 3 == 2) { // Desert
+                backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
+            } 
+            else { // Snow
+                backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
+            }
+        }
+    } catch (const std::exception& e) {
+        logError("Failed to load background for level " + std::to_string(currentLevel) + ": " + std::string(e.what()));
+        useBackgroundPlaceholder = true;
+        
+        // Adjust placeholder color based on level theme
+        if (currentLevel % 3 == 1) { // Forest
+            backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
+        } 
+        else if (currentLevel % 3 == 2) { // Desert
+            backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
+        } 
+        else { // Snow
+            backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
+        }
+    }
+    
+    // Reinitialize game elements with new variations based on level
+    initializePlatforms();
+    initializeEnemies();
+    initializeUI();
     initializeMiniMap();
+    
+    // Apply level-specific physics and difficulty
+    if (currentLevel > 1) {
+        // Add extra enemies based on level
+        for (int i = 0; i < currentLevel; i++) {
+            float x = 500.f + (i * 400.f);  // Space them out
+            float y = WINDOW_HEIGHT - 70.f; // On the ground
+            float patrolDistance = 160.f + (currentLevel * 20.f); // Longer patrol for higher levels
+            enemies.push_back(Enemy(x, y, patrolDistance));
+        }
+    }
+    
+    // Puzzle-focused physics - minimal jumping, ground-based movement
+    physicsSystem.setGravity(15.0f);  // Higher gravity to keep player grounded
+    physicsSystem.setJumpForce(200.f); // Much lower jump force for puzzle gameplay
+    
+    // Initialize physics system
+    physicsSystem.initialize();
+    physicsSystem.initializePlayer(player);
+    physicsSystem.initializePlatforms(platforms);
+    physicsSystem.initializeEnemies(enemies);
+    
+    logInfo("Moved back to level " + std::to_string(currentLevel));
 }
 
 void Game::updateImGui() {
@@ -1742,7 +1885,7 @@ void Game::syncPlatformsWithPhysics() {
     logDebug("Synchronized " + std::to_string(platforms.size()) + " platforms with physics components");
 }
 
-void Game::jumpToLevel(int level, bool fromPreviousLevel) {
+void Game::jumpToLevel(int level) {
     // Ensure level is valid (at least 1)
     if (level < 1) {
         level = 1;
@@ -1751,14 +1894,8 @@ void Game::jumpToLevel(int level, bool fromPreviousLevel) {
     // Set the current level
     currentLevel = level;
     
-    // Set player position based on whether we're coming from a higher level
-    if (fromPreviousLevel) {
-        // Place player near the end of the level when coming back
-        player.reset(LEVEL_WIDTH - 150.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f);
-    } else {
-        // Place player at the start of the level
-        player.reset(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f);
-    }
+    // Reset player position
+    player.reset(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f);
     player.setCollisionBoxSize(sf::Vector2f(28.f, 28.f));
     
     // Reset view

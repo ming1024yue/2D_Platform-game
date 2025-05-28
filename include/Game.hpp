@@ -55,7 +55,8 @@ private:
     void checkGameOver();
     void resetGame();
     void nextLevel();
-    void jumpToLevel(int level, bool fromPreviousLevel = false);  // Method for jumping to specific levels
+    void previousLevel();  // Method to go back to the previous level
+    void jumpToLevel(int level);  // New method for jumping to specific levels
     void checkLevelCompletion();
     void loadAssets();
     void drawDebugBoxes();
@@ -181,7 +182,7 @@ private:
     static constexpr int LEVEL_WIDTH = 3000; // Extended level width for scrolling
     static constexpr int FPS = 60;
     static constexpr float HIT_COOLDOWN = 1.5f; // 1.5 seconds invulnerability
-    static constexpr float LEVEL_TRANSITION_DURATION = 2.0f; // Duration of level transition in seconds
+    static constexpr float LEVEL_TRANSITION_DURATION = 1.0f; // Duration of level transition in seconds
     static constexpr float GROUND_HEIGHT = 100.f; // Height of the ground platform from bottom of screen
     
     // Mini-map constants
