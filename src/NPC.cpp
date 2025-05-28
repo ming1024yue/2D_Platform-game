@@ -19,18 +19,23 @@ int NPC::createNPC(const std::string& name, const std::string& textureName, floa
     npc.currentState = "idle";
     npc.facingLeft = false;
     
-    // Create sprite with texture
+    // Initialize animation
+    npc.animation = std::make_unique<Animation>();
+    npc.animation->loadAnimation(AnimationState::Idle, "assets/images/npc/separated/idle");
+    npc.animation->loadAnimation(AnimationState::Walking, "assets/images/npc/separated/walking");
+    npc.animation->setFrameTime(0.2f); // 200ms per frame
+    npc.animation->setScale(2.0f, 2.0f);
+    npc.animation->setOrigin(sf::Vector2f(16.f, 16.f)); // Center of 32x32 sprite
+    npc.animation->setState(AnimationState::Idle);
+    
+    // Create sprite for collision and initial setup
     sf::Texture& texture = assetManager.getTexture(textureName);
     npc.sprite = std::make_unique<sf::Sprite>(texture);
     
     // Center the sprite origin
     sf::FloatRect bounds = npc.sprite->getLocalBounds();
     npc.sprite->setOrigin(sf::Vector2f(bounds.size.x / 2.f, bounds.size.y / 2.f));
-    
-    // Scale up the sprite (32x32 is quite small)
     npc.sprite->setScale(sf::Vector2f(2.0f, 2.0f));
-    
-    // Set initial position
     npc.sprite->setPosition(sf::Vector2f(x, y));
     
     // Add to NPCs vector
@@ -64,12 +69,8 @@ void NPC::updateAll(float deltaTime) {
     for (auto& npc : npcs) {
         if (!npc.isActive) continue;
         
-        // Update NPC state and position
+        // Update NPC state first
         updateNPCState(npc);
-        
-        // Simple walking behavior: move back and forth
-        static const float WALK_SPEED = 50.0f; // pixels per second
-        static const float WALK_DISTANCE = 100.0f; // pixels
         
         // Store initial position if not set
         static std::unordered_map<int, float> initialPositions;
@@ -81,6 +82,9 @@ void NPC::updateAll(float deltaTime) {
         
         // Update position based on current state
         if (npc.currentState == "walking") {
+            static const float WALK_SPEED = 50.0f; // pixels per second
+            static const float WALK_DISTANCE = 100.0f; // pixels
+            
             // Move left or right based on facing direction
             float moveAmount = WALK_SPEED * deltaTime;
             if (npc.facingLeft) {
@@ -89,7 +93,6 @@ void NPC::updateAll(float deltaTime) {
                 if (npc.x < initialX - WALK_DISTANCE) {
                     npc.x = initialX - WALK_DISTANCE;
                     npc.facingLeft = false;
-                    setNPCTexture(npc.id, "npc_walking");
                 }
             } else {
                 npc.x += moveAmount;
@@ -97,16 +100,16 @@ void NPC::updateAll(float deltaTime) {
                 if (npc.x > initialX + WALK_DISTANCE) {
                     npc.x = initialX + WALK_DISTANCE;
                     npc.facingLeft = true;
-                    setNPCTexture(npc.id, "npc_walking");
                 }
             }
         }
         
-        // Update sprite position if it exists
+        // Update animation state
+        updateNPCAnimation(npc, deltaTime);
+        
+        // Update sprite position and scale
         if (npc.sprite) {
             npc.sprite->setPosition(sf::Vector2f(npc.x, npc.y));
-            
-            // Update sprite direction
             sf::Vector2f scale = npc.sprite->getScale();
             scale.x = std::abs(scale.x) * (npc.facingLeft ? -1.f : 1.f);
             npc.sprite->setScale(scale);
@@ -116,9 +119,22 @@ void NPC::updateAll(float deltaTime) {
 
 void NPC::renderAll() {
     for (const auto& npc : npcs) {
-        if (!npc.isActive || !npc.sprite) continue;
+        if (!npc.isActive || !npc.animation) continue;
         
-        renderSystem.renderEntity(*renderSystem.getRenderTarget(), *npc.sprite, sf::Vector2f(npc.x, npc.y));
+        // Get the current animation frame sprite
+        const sf::Sprite& animatedSprite = npc.animation->getCurrentSprite();
+        
+        // Create a copy of the sprite to modify position and scale
+        sf::Sprite renderSprite = animatedSprite;
+        renderSprite.setPosition(sf::Vector2f(npc.x, npc.y));
+        
+        // Set the scale based on facing direction
+        sf::Vector2f scale = renderSprite.getScale();
+        scale.x = std::abs(scale.x) * (npc.facingLeft ? -1.f : 1.f);
+        renderSprite.setScale(scale);
+        
+        // Render the animated sprite
+        renderSystem.renderEntity(*renderSystem.getRenderTarget(), renderSprite, sf::Vector2f(npc.x, npc.y));
     }
 }
 
@@ -234,6 +250,20 @@ float NPC::calculateDistance(float x1, float y1, float x2, float y2) const {
     return dx * dx + dy * dy;  // Return squared distance for efficiency
 }
 
+void NPC::updateNPCAnimation(NPCData& npc, float deltaTime) {
+    if (!npc.animation) return;
+    
+    // Update animation state based on NPC state
+    if (npc.currentState == "walking") {
+        npc.animation->setState(AnimationState::Walking);
+    } else {
+        npc.animation->setState(AnimationState::Idle);
+    }
+    
+    // Update animation timing
+    npc.animation->update(deltaTime);
+}
+
 void NPC::updateNPCState(NPCData& npc) {
     // Simple state machine for NPC behavior
     static std::unordered_map<int, float> stateTimers;
@@ -244,7 +274,6 @@ void NPC::updateNPCState(NPCData& npc) {
     if (stateTimers.find(npc.id) == stateTimers.end()) {
         stateTimers[npc.id] = 0.0f;
         npc.currentState = "idle";
-        setNPCTexture(npc.id, "npc_idle");
     }
     
     // Update timer
@@ -253,12 +282,10 @@ void NPC::updateNPCState(NPCData& npc) {
     // State transitions
     if (npc.currentState == "idle" && stateTimers[npc.id] >= IDLE_DURATION) {
         npc.currentState = "walking";
-        setNPCTexture(npc.id, "npc_walking");
         stateTimers[npc.id] = 0.0f;
     }
     else if (npc.currentState == "walking" && stateTimers[npc.id] >= WALK_DURATION) {
         npc.currentState = "idle";
-        setNPCTexture(npc.id, "npc_idle");
         stateTimers[npc.id] = 0.0f;
     }
 } 

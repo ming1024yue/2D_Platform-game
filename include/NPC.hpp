@@ -20,6 +20,7 @@ namespace NPCSystem {
         std::string currentState;  // e.g., "idle", "walking", "talking"
         std::unique_ptr<sf::Sprite> sprite;
         bool facingLeft;
+        std::unique_ptr<Animation> animation;  // Add animation support
     };
 }
 
@@ -63,4 +64,5 @@ private:
     // Helper functions
     float calculateDistance(float x1, float y1, float x2, float y2) const;
     void updateNPCState(NPCData& npc);
+    void updateNPCAnimation(NPCData& npc, float deltaTime);  // New helper function
 }; 

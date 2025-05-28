@@ -2300,7 +2300,7 @@ void Game::initializeNPCs() {
     
     // Create an NPC at the beginning of the level
     float npcX = 200.f;  // A bit ahead of the player's starting position
-    float npcY = WINDOW_HEIGHT - GROUND_HEIGHT;  // Just above the ground
+    float npcY = WINDOW_HEIGHT - GROUND_HEIGHT - 16;  // Just above the ground
     npcManager->createNPC("Village_Guard", "npc_idle", npcX, npcY);
 
     // Configure NPC physics properties
