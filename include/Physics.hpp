@@ -4,6 +4,11 @@
 #include "Player.hpp"
 #include "Enemy.hpp"
 
+// Forward declarations
+namespace NPCSystem {
+    struct NPCData;
+}
+
 // Physics component to store collision properties
 struct PhysicsComponent {
     sf::FloatRect collisionBox;
@@ -27,9 +32,11 @@ public:
     void initializePlayer(Player& player);
     void initializePlatforms(const std::vector<sf::RectangleShape>& platforms);
     void initializeEnemies(const std::vector<Enemy>& enemies);
+    void initializeNPCs(const std::vector<NPCSystem::NPCData>& npcs);
     
     // Update physics
     void update(float deltaTime, Player& player, std::vector<Enemy>& enemies);
+    void updateNPCs(std::vector<NPCSystem::NPCData>& npcs);
     
     // Ground detection
     bool isEntityOnGround(const PhysicsComponent& entityPhysics, const sf::Vector2f& position, float checkDistance) const;
@@ -100,6 +107,30 @@ public:
     }
     size_t getPlatformPhysicsCount() const { return platformPhysics.size(); }
     
+    // NPC collision settings
+    void setNPCCollisionSize(float width, float height) { 
+        npcCollisionWidth = width; 
+        npcCollisionHeight = height; 
+    }
+    float getNPCCollisionWidth() const { return npcCollisionWidth; }
+    float getNPCCollisionHeight() const { return npcCollisionHeight; }
+    
+    void setNPCCollisionOffset(float offsetX, float offsetY) { 
+        npcOffsetX = offsetX; 
+        npcOffsetY = offsetY; 
+    }
+    float getNPCOffsetX() const { return npcOffsetX; }
+    float getNPCOffsetY() const { return npcOffsetY; }
+    
+    void setNPCBounceFactor(float f) { npcBounceFactor = f; }
+    float getNPCBounceFactor() const { return npcBounceFactor; }
+    
+    // Access to NPC physics components
+    const PhysicsComponent& getNPCPhysicsComponent(size_t index) const {
+        return (index < npcPhysics.size()) ? npcPhysics[index] : playerPhysics;
+    }
+    size_t getNPCPhysicsCount() const { return npcPhysics.size(); }
+    
 private:
     // Helper methods
     void resolveCollisions(Player& player, std::vector<Enemy>& enemies);
@@ -124,10 +155,18 @@ private:
     float playerAcceleration;
     bool useOneWayPlatforms;
     
+    // NPC physics parameters
+    float npcCollisionWidth;
+    float npcCollisionHeight;
+    float npcOffsetX;
+    float npcOffsetY;
+    float npcBounceFactor;
+    
     // Physics components
     PhysicsComponent playerPhysics;
     std::vector<PhysicsComponent> enemyPhysics;
     std::vector<PhysicsComponent> platformPhysics;
+    std::vector<PhysicsComponent> npcPhysics;
     
     // Window dimensions (needed for ground collision)
     int windowWidth;

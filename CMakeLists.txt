@@ -32,11 +32,10 @@ set(GAME_SOURCES
     src/Player.cpp
     src/Enemy.cpp
     src/Animation.cpp
-
     src/AssetManager.cpp
     src/Physics.cpp
     src/RenderingSystem.cpp
-
+    src/NPC.cpp
 )
 
 # Add executable
@@ -48,14 +47,12 @@ add_executable(game
 # Include directories
 target_include_directories(game PRIVATE 
     include 
-    /opt/homebrew/include
-    /opt/homebrew/Cellar/sfml/3.0.1/include
     ${IMGUI_DIR}
     ${IMGUI_SFML_DIR}
     ${OPENGL_INCLUDE_DIR}
 )
 
-# Link SFML libraries and OpenGL
+# Link libraries
 target_link_libraries(game PRIVATE 
     SFML::Graphics 
     SFML::Window 

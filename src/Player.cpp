@@ -21,11 +21,14 @@ static bool checkGroundBelow(const sf::Vector2f& position, const sf::Vector2f& s
 Player::Player(float x, float y, PhysicsSystem& physics) : physicsSystem(physics), animationsLoaded(false) {
     position = sf::Vector2f(x, y);
     
-    // Set up collision box to match sprite dimensions
-    collisionBox.setSize(sf::Vector2f(24.f, 28.f)); // Adjusted to better match sprite
+    // Set up collision box to match sprite dimensions (scaled up for 4x sprite scale)
+    collisionBox.setSize(sf::Vector2f(56.f, 56.f)); // Scaled up from 28x28 to match 4x scale
     
-    // Calculate collision offset to center the box on the sprite
-    collisionOffset = sf::Vector2f(4.f, 2.f); // Offset from top-left of sprite
+    // Calculate collision offset to center the box on the sprite (64x64 with 4x scale)
+    collisionOffset = sf::Vector2f(
+        (64.f - collisionBox.getSize().x) / 2.f,  // Center horizontally (64-56)/2 = 4
+        (64.f - collisionBox.getSize().y) / 2.f   // Center vertically (64-56)/2 = 4
+    );
     
     // Set up collision box with visible outline
     collisionBox.setPosition(position + collisionOffset);
@@ -205,24 +208,34 @@ void Player::draw(sf::RenderWindow& window) {
     if (animationsLoaded) {
         sf::Sprite animatedSprite = playerAnimation.getCurrentSprite();
         
-        // Position the sprite at the player's position (without collision offset)
-        animatedSprite.setPosition(position);
-        
-        // Handle sprite flipping for direction
+        // Apply scale first
         if (facingLeft) {
-            // Flip the sprite horizontally
-            sf::Vector2f scale = animatedSprite.getScale();
-            animatedSprite.setScale(sf::Vector2f(-std::abs(scale.x), scale.y));
-            // Adjust position to account for flipping
-            animatedSprite.setPosition(sf::Vector2f(position.x + animatedSprite.getGlobalBounds().size.x, position.y));
+            animatedSprite.setScale(sf::Vector2f(-4.0f, 4.0f));  // Negative X scale for flipping
         } else {
-            // Ensure sprite is not flipped
-            sf::Vector2f scale = animatedSprite.getScale();
-            animatedSprite.setScale(sf::Vector2f(std::abs(scale.x), scale.y));
-            animatedSprite.setPosition(position);
+            animatedSprite.setScale(sf::Vector2f(4.0f, 4.0f));
         }
         
+        // Position sprite to align with collision box
+        // Since the sprite origin is at bottom center (16, 32) and scaled 4x,
+        // we need to position it at the bottom center of the collision box
+        sf::Vector2f spritePos;
+        spritePos.x = position.x + collisionOffset.x + (collisionBox.getSize().x / 2.f);
+        spritePos.y = position.y + collisionOffset.y + collisionBox.getSize().y - 4.0f; // Slight adjustment to align with ground
+        animatedSprite.setPosition(spritePos);
+        
         window.draw(animatedSprite);
+        
+        // Debug: Draw sprite bounds
+        if (showDebugInfo) {
+            sf::FloatRect spriteBounds = animatedSprite.getGlobalBounds();
+            sf::RectangleShape spriteBoundsRect;
+            spriteBoundsRect.setSize(sf::Vector2f(spriteBounds.size.x, spriteBounds.size.y));
+            spriteBoundsRect.setPosition(sf::Vector2f(spriteBounds.position.x, spriteBounds.position.y));
+            spriteBoundsRect.setFillColor(sf::Color::Transparent);
+            spriteBoundsRect.setOutlineColor(sf::Color::Yellow);
+            spriteBoundsRect.setOutlineThickness(1.0f);
+            window.draw(spriteBoundsRect);
+        }
     }
     
     // Draw debug visualization if enabled
@@ -268,7 +281,11 @@ void Player::initializeAnimations() {
     
     // Set animation properties
     playerAnimation.setFrameTime(0.15f); // 150ms per frame for smooth animation
-    playerAnimation.setScale(2.0f, 2.0f); // Scale up the sprites
+    playerAnimation.setScale(4.0f, 4.0f); // Scale up the sprites to match NPC size
+    
+    // Set the origin to the bottom center of the sprite (32x32 original size)
+    // Adjust origin Y to account for the slight offset in the sprite art
+    playerAnimation.setOrigin(sf::Vector2f(16.f, 20.f)); // Half width and slightly above full height
     
     // Start with idle animation
     playerAnimation.setState(AnimationState::Idle);

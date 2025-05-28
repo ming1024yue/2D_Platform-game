@@ -1,6 +1,7 @@
 #include "Physics.hpp"
 #include <iostream>
 #include <SFML/Graphics.hpp>
+#include "NPC.hpp"
 
 // Helper function for rectangle intersection (SFML 3.x compatibility)
 static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
@@ -24,6 +25,11 @@ PhysicsSystem::PhysicsSystem() :
     enemyOffsetX(0.0f),
     enemyOffsetY(0.0f),
     enemyBounceFactor(0.1f),
+    npcCollisionWidth(1.0f),
+    npcCollisionHeight(1.0f),
+    npcOffsetX(0.0f),
+    npcOffsetY(0.0f),
+    npcBounceFactor(0.0f),
     platformFriction(0.3f),
     useOneWayPlatforms(false),
     windowWidth(800),
@@ -38,6 +44,7 @@ void PhysicsSystem::initialize() {
     // Clear all physics components
     platformPhysics.clear();
     enemyPhysics.clear();
+    npcPhysics.clear();
     
     // Initialize player physics
     playerPhysics.hasGravity = true;
@@ -52,9 +59,9 @@ void PhysicsSystem::initializePlayer(Player& player) {
     float width = playerBounds.size.x * playerCollisionWidth;
     float height = playerBounds.size.y * playerCollisionHeight;
     
-    // Apply custom offsets instead of automatic centering
-    float offsetX = playerBounds.size.x * playerOffsetX;
-    float offsetY = playerBounds.size.y * playerOffsetY;
+    // Center the collision box on the sprite
+    float offsetX = (playerBounds.size.x - width) / 2.0f;
+    float offsetY = (playerBounds.size.y - height) / 2.0f;
     
     playerPhysics.collisionBox = sf::FloatRect(
         sf::Vector2f(playerBounds.position.x + offsetX, playerBounds.position.y + offsetY),
@@ -112,15 +119,55 @@ void PhysicsSystem::initializeEnemies(const std::vector<Enemy>& enemies) {
     }
 }
 
+void PhysicsSystem::initializeNPCs(const std::vector<NPCSystem::NPCData>& npcs) {
+    npcPhysics.clear();
+    
+    for (const auto& npc : npcs) {
+        PhysicsComponent pc;
+        
+        // Get sprite bounds if available
+        sf::FloatRect bounds;
+        if (npc.sprite) {
+            bounds = npc.sprite->getGlobalBounds();
+        } else {
+            // Default size if no sprite
+            bounds = sf::FloatRect(
+                sf::Vector2f(npc.x, npc.y),
+                sf::Vector2f(32.f, 32.f)
+            );
+        }
+        
+        // Adjust collision box based on settings
+        float width = bounds.size.x * npcCollisionWidth;
+        float height = bounds.size.y * npcCollisionHeight;
+        
+        // Apply custom offsets
+        float offsetX = bounds.size.x * npcOffsetX;
+        float offsetY = bounds.size.y * npcOffsetY;
+        
+        pc.collisionBox = sf::FloatRect(
+            sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY),
+            sf::Vector2f(width, height)
+        );
+        
+        pc.hasGravity = true;
+        pc.isStatic = true; // NPCs are static by default
+        pc.bounceFactor = npcBounceFactor;
+        pc.friction = 0.0f;
+        
+        npcPhysics.push_back(pc);
+    }
+}
+
 void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& enemies) {
     // Update player physics component
     sf::FloatRect playerBounds = player.getGlobalBounds();
     float width = playerBounds.size.x * playerCollisionWidth;
     float height = playerBounds.size.y * playerCollisionHeight;
     
-    // Apply custom offsets instead of automatic centering
-    float offsetX = playerBounds.size.x * playerOffsetX;
-    float offsetY = playerBounds.size.y * playerOffsetY;
+    // Center the collision box on the sprite
+    float offsetX = (playerBounds.size.x - width) / 2.0f;
+    float offsetY = (playerBounds.size.y - height) / 2.0f;
     
     playerPhysics.collisionBox = sf::FloatRect(
         sf::Vector2f(playerBounds.position.x + offsetX, playerBounds.position.y + offsetY),
@@ -196,6 +243,58 @@ void PhysicsSystem::update(float deltaTime, Player& player, std::vector<Enemy>& 
     
     // Apply physics to entities
     applyPhysicsToEntities(player, enemies);
+}
+
+void PhysicsSystem::updateNPCs(std::vector<NPCSystem::NPCData>& npcs) {
+    // Update NPC physics components
+    for (size_t i = 0; i < npcs.size() && i < npcPhysics.size(); ++i) {
+        if (!npcs[i].isActive) continue;
+        
+        // Get sprite bounds if available
+        sf::FloatRect bounds;
+        if (npcs[i].sprite) {
+            bounds = npcs[i].sprite->getGlobalBounds();
+        } else {
+            bounds = sf::FloatRect(
+                sf::Vector2f(npcs[i].x, npcs[i].y),
+                sf::Vector2f(32.f, 32.f)
+            );
+        }
+        
+        // Update collision box
+        float width = bounds.size.x * npcCollisionWidth;
+        float height = bounds.size.y * npcCollisionHeight;
+        float offsetX = bounds.size.x * npcOffsetX;
+        float offsetY = bounds.size.y * npcOffsetY;
+        
+        npcPhysics[i].collisionBox = sf::FloatRect(
+            sf::Vector2f(bounds.position.x + offsetX, bounds.position.y + offsetY),
+            sf::Vector2f(width, height)
+        );
+        
+        // Check for ground collision
+        bool npcOnGround = isEntityOnGround(npcPhysics[i], sf::Vector2f(npcs[i].x, npcs[i].y), 5.0f);
+        
+        // Apply gravity if not on ground
+        if (!npcOnGround && npcPhysics[i].hasGravity) {
+            npcs[i].y += gravity * 0.016f; // Using a fixed timestep for stability
+        }
+        
+        // Check platform collisions
+        for (const auto& platform : platformPhysics) {
+            if (checkCollision(npcPhysics[i], platform)) {
+                // Position NPC on top of platform
+                float newY = platform.collisionBox.position.y - height - 0.1f;
+                npcs[i].y = newY;
+                break;
+            }
+        }
+        
+        // Update sprite position
+        if (npcs[i].sprite) {
+            npcs[i].sprite->setPosition(sf::Vector2f(npcs[i].x, npcs[i].y));
+        }
+    }
 }
 
 bool PhysicsSystem::isEntityOnGround(const PhysicsComponent& entityPhysics, const sf::Vector2f& position, float checkDistance) const {

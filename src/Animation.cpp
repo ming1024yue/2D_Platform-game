@@ -73,6 +73,9 @@ bool Animation::loadFramesFromDirectory(const std::string& directory, AnimationD
             // Create sprite with the texture
             auto sprite = std::make_unique<sf::Sprite>(*texture);
             
+            // Apply current origin to the new sprite
+            sprite->setOrigin(spriteOrigin);
+            
             // Add texture and sprite to vectors
             animData.sprites.push_back(std::move(sprite));
             animData.textures.push_back(std::move(texture));
@@ -220,4 +223,26 @@ bool Animation::isFinished() const {
     
     const AnimationData& animData = animations.at(currentState);
     return currentFrame >= static_cast<int>(animData.sprites.size()) - 1 && !isPlaying;
+}
+
+void Animation::setOrigin(const sf::Vector2f& origin) {
+    spriteOrigin = origin;
+    
+    // Apply origin to empty sprite
+    if (emptySprite) {
+        emptySprite->setOrigin(origin);
+    }
+    
+    // Apply origin to all loaded animation sprites
+    for (auto& [state, animData] : animations) {
+        for (auto& sprite : animData.sprites) {
+            if (sprite) {
+                sprite->setOrigin(origin);
+            }
+        }
+    }
+}
+
+void Animation::applyOriginToSprite(sf::Sprite& sprite) const {
+    sprite.setOrigin(spriteOrigin);
 } 

@@ -92,11 +92,14 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
     
     window.setView(gameView);
     
+    // Initialize NPC manager
+    npcManager = std::make_unique<NPC>(assets, renderingSystem);
+    
     // Load game assets
     loadAssets();
     
     initializePlatforms();
-    
+    initializeNPCs();  // Initialize NPCs after loading assets
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
@@ -149,6 +152,11 @@ void Game::update() {
         // Update player
         player.update(deltaTime, platforms, ladders);
         
+        // Update NPCs
+        npcManager->updateAll(deltaTime);
+        // Update NPC physics
+        physicsSystem.updateNPCs(const_cast<std::vector<NPC::NPCData>&>(npcManager->getAllNPCs()));
+        
         // Update enemies only if they're visible
         if (showEnemies) {
             for (auto& enemy : enemies) {
@@ -163,6 +171,9 @@ void Game::update() {
         if (showEnemies) {
             checkPlayerEnemyCollision();
         }
+        
+        // Check for player-NPC collisions
+        checkPlayerNPCCollision();
         
         // Check if game is over
         checkGameOver();
@@ -561,7 +572,13 @@ void Game::resetGame() {
     player.reset(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 40.f); // Start player higher above the ground
     
     // Set player collision box
-    player.setCollisionBoxSize(sf::Vector2f(28.f, 28.f));
+    player.setCollisionBoxSize(sf::Vector2f(56.f, 56.f)); // Scaled up from 28x28 to match 4x scale
+    
+    // Center the collision box on the sprite (64x64 with 4x scale from 32x32)
+    player.setCollisionBoxOffset(sf::Vector2f(
+        (64.f - 56.f) / 2.f,  // Center horizontally (64-56)/2 = 4
+        (64.f - 56.f) / 2.f   // Center vertically (64-56)/2 = 4
+    ));
     
     // Reset view
     gameView.setCenter(sf::Vector2f(WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f));
@@ -573,13 +590,14 @@ void Game::resetGame() {
     
     // Reinitialize everything
     initializePlatforms();
-    
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
     
-    // Initialize physics system
+    // Initialize physics system with centered collision box
     physicsSystem.initialize();
+    physicsSystem.setPlayerCollisionSize(0.875f, 0.875f); // 28/32 = 0.875 (collision box is 28x28 on 32x32 sprite)
+    physicsSystem.setPlayerCollisionOffset(0.0625f, 0.0625f); // 2/32 = 0.0625 (offset by 2 pixels on each side)
     physicsSystem.initializePlayer(player);
     physicsSystem.initializePlatforms(platforms);
     physicsSystem.initializeEnemies(enemies);
@@ -1319,6 +1337,32 @@ void Game::updateImGui() {
                     
                     ImGui::Spacing();
                     
+                    // NPC collision box settings
+                    ImGui::Text("NPC Collision:");
+                    float npcWidth = physicsSystem.getNPCCollisionWidth();
+                    float npcHeight = physicsSystem.getNPCCollisionHeight();
+                    float npcOffsetX = physicsSystem.getNPCOffsetX();
+                    float npcOffsetY = physicsSystem.getNPCOffsetY();
+                    float npcBounce = physicsSystem.getNPCBounceFactor();
+                    
+                    if (ImGui::SliderFloat("NPC Width", &npcWidth, 0.5f, 1.5f, "%.2f")) {
+                        physicsSystem.setNPCCollisionSize(npcWidth, npcHeight);
+                    }
+                    if (ImGui::SliderFloat("NPC Height", &npcHeight, 0.5f, 1.5f, "%.2f")) {
+                        physicsSystem.setNPCCollisionSize(npcWidth, npcHeight);
+                    }
+                    if (ImGui::SliderFloat("NPC Offset X", &npcOffsetX, 0.0f, 1.0f, "%.2f")) {
+                        physicsSystem.setNPCCollisionOffset(npcOffsetX, npcOffsetY);
+                    }
+                    if (ImGui::SliderFloat("NPC Offset Y", &npcOffsetY, 0.0f, 1.0f, "%.2f")) {
+                        physicsSystem.setNPCCollisionOffset(npcOffsetX, npcOffsetY);
+                    }
+                    if (ImGui::SliderFloat("NPC Bounce", &npcBounce, 0.0f, 1.0f, "%.2f")) {
+                        physicsSystem.setNPCBounceFactor(npcBounce);
+                    }
+                    
+                    ImGui::Spacing();
+                    
                     // Platform collision settings
                     ImGui::Text("Platform Physics:");
                     float platformFriction = physicsSystem.getPlatformFriction();
@@ -1484,6 +1528,53 @@ void Game::drawDebugBoxes() {
             platformCollisionBox.setOutlineThickness(1.0f);
             window.draw(platformCollisionBox);
         }
+
+        // Draw player collision box
+        sf::FloatRect playerBounds = player.getGlobalBounds();
+        float playerWidth = playerBounds.size.x * physicsSystem.getPlayerCollisionWidth();
+        float playerHeight = playerBounds.size.y * physicsSystem.getPlayerCollisionHeight();
+        float playerOffsetX = playerBounds.size.x * physicsSystem.getPlayerOffsetX();
+        float playerOffsetY = playerBounds.size.y * physicsSystem.getPlayerOffsetY();
+
+        sf::RectangleShape playerCollisionBox;
+        playerCollisionBox.setSize(sf::Vector2f(playerWidth, playerHeight));
+        playerCollisionBox.setPosition(sf::Vector2f(
+            playerBounds.position.x + playerOffsetX,
+            playerBounds.position.y + playerOffsetY
+        ));
+        playerCollisionBox.setFillColor(sf::Color(0, 255, 0, 30)); // Semi-transparent green
+        playerCollisionBox.setOutlineColor(sf::Color(0, 255, 0)); // Green outline
+        playerCollisionBox.setOutlineThickness(1.0f);
+        window.draw(playerCollisionBox);
+
+        // Draw NPC collision boxes
+        if (npcManager) {
+            const auto& npcs = npcManager->getAllNPCs();
+            for (const auto& npc : npcs) {
+                if (!npc.isActive || !npc.sprite) continue;
+
+                // Get the sprite's bounds
+                sf::FloatRect spriteBounds = npc.sprite->getGlobalBounds();
+                
+                // Calculate collision box dimensions (same as in checkPlayerNPCCollision)
+                float width = spriteBounds.size.x * 0.8f;  // 80% of sprite width
+                float height = spriteBounds.size.y * 0.8f;  // 80% of sprite height
+                float offsetX = (spriteBounds.size.x - width) / 2.0f;
+                float offsetY = (spriteBounds.size.y - height) / 2.0f;
+
+                // Create and draw the NPC collision box
+                sf::RectangleShape npcCollisionBox;
+                npcCollisionBox.setSize(sf::Vector2f(width, height));
+                npcCollisionBox.setPosition(sf::Vector2f(
+                    spriteBounds.position.x + offsetX,
+                    spriteBounds.position.y + offsetY
+                ));
+                npcCollisionBox.setFillColor(sf::Color(255, 165, 0, 30)); // Semi-transparent orange
+                npcCollisionBox.setOutlineColor(sf::Color(255, 165, 0)); // Orange outline
+                npcCollisionBox.setOutlineThickness(1.0f);
+                window.draw(npcCollisionBox);
+            }
+        }
     }
 }
 
@@ -1522,7 +1613,7 @@ void Game::showAssetManagerWindow() {
         if (ImGui::IsItemHovered()) {
             ImGui::BeginTooltip();
             ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-            ImGui::TextUnformatted("Click to scan the assets directory for all files.\nDirectory contents are shown with [DIR] prefix.\nImage files are shown with [IMG] prefix.");
+            ImGui::TextUnformatted("Click to scan the assets directory for all files.\nDirectory contents are shown with [DIR] prefix.\nImage files are shown with  prefix.");
             ImGui::PopTextWrapPos();
             ImGui::EndTooltip();
         }
@@ -1539,7 +1630,7 @@ void Game::showAssetManagerWindow() {
         for (auto& asset : imageAssets) {
             // Display file name and status
             std::string label = asset.name;
-            bool isImage = asset.name.find("[IMG]") != std::string::npos;
+            bool isImage = asset.name.find(" prefix.") != std::string::npos;
             bool isDir = asset.name.find("[DIR]") != std::string::npos;
             
             if (isImage && asset.isLoaded) {
@@ -1586,7 +1677,7 @@ void Game::showAssetManagerWindow() {
             ImGui::Text("File: %s", selectedAsset->name.c_str());
             ImGui::Text("Path: %s", selectedAsset->path.c_str());
             
-            bool isImage = selectedAsset->name.find("[IMG]") != std::string::npos;
+            bool isImage = selectedAsset->name.find(" prefix.") != std::string::npos;
             bool isDir = selectedAsset->name.find("[DIR]") != std::string::npos;
             
             if (isDir) {
@@ -1648,7 +1739,7 @@ void Game::showAssetManagerWindow() {
                     try {
                         // Example of loading into the asset manager
                         std::string assetName = selectedAsset->name;
-                        // Remove [IMG] prefix and any file extension
+                        // Remove  prefix and any file extension
                         assetName = assetName.substr(assetName.find("]") + 2);
                         assetName = assetName.substr(0, assetName.find_last_of('.'));
                         assets.loadTexture(assetName, selectedAsset->path);
@@ -1796,7 +1887,7 @@ void Game::scanAssetDirectory(const std::string& directory) {
                         info.dimensions = texture.getSize();
                         info.isLoaded = true;
                         info.loadTime = loadTimer.getElapsedTime();
-                        info.name = "[IMG] " + name;
+                        info.name = " prefix. " + name;
                     }
                 }
                 
@@ -1823,7 +1914,7 @@ void Game::scanAssetDirectory(const std::string& directory) {
                             
                             ImageAssetInfo info;
                             info.path = entry.path().string();
-                            info.name = "[IMG] " + entry.path().filename().string();
+                            info.name = " prefix. " + entry.path().filename().string();
                             info.fileSize = entry.file_size();
                             info.isLoaded = false;
                             info.loadTime = sf::Time::Zero;
@@ -2201,3 +2292,80 @@ std::string Game::getCurrentTimestamp() {
     ss << '.' << std::setfill('0') << std::setw(3) << ms.count();
     return ss.str();
 }
+
+void Game::initializeNPCs() {
+    // Load NPC textures for different animations
+    assets.loadTexture("npc_idle", "assets/images/npc/separated/idle/idle_frame_01.png");
+    assets.loadTexture("npc_walking", "assets/images/npc/separated/walking/walking_frame_01.png");
+    
+    // Create an NPC at the beginning of the level
+    float npcX = 200.f;  // A bit ahead of the player's starting position
+    float npcY = WINDOW_HEIGHT - GROUND_HEIGHT;  // Just above the ground
+    npcManager->createNPC("Village_Guard", "npc_idle", npcX, npcY);
+
+    // Configure NPC physics properties
+    physicsSystem.setNPCCollisionSize(0.8f, 0.9f);  // Slightly smaller than sprite for better collision
+    physicsSystem.setNPCCollisionOffset(0.1f, 0.05f);  // Center the collision box
+    physicsSystem.setNPCBounceFactor(0.0f);  // No bouncing for NPCs
+    
+    // Initialize NPC physics
+    physicsSystem.initializeNPCs(npcManager->getAllNPCs());
+}
+
+void Game::checkPlayerNPCCollision() {
+    if (!npcManager) return;
+    
+    const auto& npcs = npcManager->getAllNPCs();
+    sf::FloatRect playerBounds = player.getGlobalBounds();
+    
+    // Debug log player bounds
+    logDebug("Player bounds - pos: (" + std::to_string(playerBounds.position.x) + ", " + 
+             std::to_string(playerBounds.position.y) + "), size: (" + 
+             std::to_string(playerBounds.size.x) + ", " + std::to_string(playerBounds.size.y) + ")");
+    
+    for (const auto& npc : npcs) {
+        if (!npc.isActive || !npc.sprite) continue;
+        
+        // Get the sprite's bounds first
+        sf::FloatRect spriteBounds = npc.sprite->getGlobalBounds();
+        
+        // Calculate collision box dimensions (slightly smaller than sprite)
+        float width = spriteBounds.size.x * 0.8f;  // 80% of sprite width
+        float height = spriteBounds.size.y * 0.8f;  // 80% of sprite height
+        
+        // Center the collision box on the sprite
+        float offsetX = (spriteBounds.size.x - width) / 2.0f;
+        float offsetY = (spriteBounds.size.y - height) / 2.0f;
+        
+        // Create collision bounds centered on the sprite
+        sf::FloatRect npcBounds(
+            sf::Vector2f(spriteBounds.position.x + offsetX, spriteBounds.position.y + offsetY),
+            sf::Vector2f(width, height)
+        );
+        
+        // Debug log NPC bounds
+        logDebug("NPC bounds - pos: (" + std::to_string(npcBounds.position.x) + ", " + 
+                 std::to_string(npcBounds.position.y) + "), size: (" + 
+                 std::to_string(npcBounds.size.x) + ", " + std::to_string(npcBounds.size.y) + ")");
+        
+        if (rectsIntersect(playerBounds, npcBounds)) {
+            logInfo("Collision detected between player and NPC!");
+            // Handle collision with NPC
+            // Push player away from NPC with more force
+            if (player.getPosition().x < npcBounds.position.x) {
+                // Push player left with more force
+                float pushDistance = npcBounds.position.x - playerBounds.size.x - 10.f;
+                player.setPosition(sf::Vector2f(pushDistance, player.getPosition().y));
+                logDebug("Pushing player left to: " + std::to_string(pushDistance));
+            } else {
+                // Push player right with more force
+                float pushDistance = npcBounds.position.x + npcBounds.size.x + 10.f;
+                player.setPosition(sf::Vector2f(pushDistance, player.getPosition().y));
+                logDebug("Pushing player right to: " + std::to_string(pushDistance));
+            }
+            break;
+        }
+    }
+}
+
+

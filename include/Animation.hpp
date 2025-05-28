@@ -41,6 +41,7 @@ public:
     void setFrameTime(float time) { frameTime = time; }
     void setLoop(bool loop) { shouldLoop = loop; }
     void setScale(float scaleX, float scaleY);
+    void setOrigin(const sf::Vector2f& origin);
     
     // Reset animation to first frame
     void reset();
@@ -68,10 +69,12 @@ private:
     
     std::unique_ptr<sf::Sprite> emptySprite; // Fallback sprite when no animation is loaded
     std::unique_ptr<sf::Texture> emptyTexture; // Texture for empty sprite
+    sf::Vector2f spriteOrigin; // Store the origin for all sprites
     
     // Helper methods
     void switchToState(AnimationState newState);
     std::vector<std::string> getFrameFiles(const std::string& directory);
     bool loadFramesFromDirectory(const std::string& directory, AnimationData& animData);
     void createEmptySprite();
+    void applyOriginToSprite(sf::Sprite& sprite) const; // Helper to apply origin to a sprite
 }; 

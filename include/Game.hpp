@@ -6,6 +6,7 @@
 #include <fstream>
 #include "Player.hpp"
 #include "Enemy.hpp"
+#include "NPC.hpp"
 
 #include "AssetManager.hpp"
 #include "Physics.hpp"
@@ -44,13 +45,14 @@ private:
     void update();
     void draw();
     void initializePlatforms();
-
+    void initializeNPCs();  // New method
     void initializeEnemies();
     void initializeUI();
     void initializeMiniMap();
     void updateMiniMap();
     void syncPlatformsWithPhysics();
     void checkPlayerEnemyCollision();
+    void checkPlayerNPCCollision();  // New method for NPC collision detection
     void updateUI();
     void checkGameOver();
     void resetGame();
@@ -106,6 +108,7 @@ private:
     std::vector<sf::RectangleShape> platforms;
     std::vector<sf::RectangleShape> ladders;
     std::vector<Enemy> enemies;
+    std::unique_ptr<NPC> npcManager;  // NPC manager
     bool playerHit;
     float playerHitCooldown;
     
@@ -219,4 +222,9 @@ private:
 
     // Debug properties
     bool showPlayerDebug = false;
+    
+    // Fullscreen properties
+    bool isFullscreen = false;
+    sf::VideoMode previousVideoMode;  // Store previous window size/mode
+    sf::Vector2i previousPosition;    // Store previous window position
 }; 

@@ -118,6 +118,44 @@ void Game::handleEvents() {
                 useImGuiInterface = !useImGuiInterface;
             }
             
+            // Toggle fullscreen with F4 key
+            if (key->code == sf::Keyboard::Key::F4) {
+                isFullscreen = !isFullscreen;
+                
+                if (isFullscreen) {
+                    // Store current window properties
+                    previousVideoMode = sf::VideoMode(sf::Vector2u(window.getSize().x, window.getSize().y));
+                    previousPosition = window.getPosition();
+                    
+                    // Switch to fullscreen mode using the first available fullscreen mode
+                    auto fullscreenModes = sf::VideoMode::getFullscreenModes();
+                    if (!fullscreenModes.empty()) {
+                        window.create(fullscreenModes[0], "2D Platform Puzzle Game", 
+                                    sf::Style::None); // Borderless fullscreen
+                        window.setPosition(sf::Vector2i(0, 0)); // Position at top-left
+                    } else {
+                        logError("No fullscreen modes available");
+                        isFullscreen = false;
+                    }
+                } else {
+                    // Restore windowed mode with previous properties
+                    window.create(previousVideoMode, "2D Platform Puzzle Game", 
+                                sf::Style::Close | sf::Style::Titlebar | sf::Style::Resize);
+                    window.setPosition(previousPosition);
+                }
+                
+                // Reinitialize ImGui after recreating the window
+                if (!ImGui::SFML::Init(window)) {
+                    logError("Failed to reinitialize ImGui after toggling fullscreen");
+                    useImGuiInterface = false;
+                }
+                
+                // Reset window framerate limit
+                window.setFramerateLimit(FPS);
+                
+                logDebug("Toggled fullscreen mode: " + std::string(isFullscreen ? "ON" : "OFF"));
+            }
+            
             // Handle restart when in game over state
             if (currentState == GameState::GameOver && key->code == sf::Keyboard::Key::Enter) {
                 resetGame();
@@ -185,6 +223,11 @@ void Game::draw() {
         for (const auto& enemy : enemies) {
             enemy.draw(window);
         }
+    }
+    
+    // Draw NPCs
+    if (npcManager) {
+        npcManager->renderAll();
     }
     
     // Draw player
