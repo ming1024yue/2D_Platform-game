@@ -18,13 +18,25 @@ static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
 NPC::NPC(AssetManager& assetManager, RenderingSystem& renderSystem) 
     : nextId(0), assetManager(assetManager), renderSystem(renderSystem) {
     
-    // Load the pixel font
-    if (!messageFont.openFromFile("assets/fonts/pixel.ttf")) {
-        std::cerr << "Error loading pixel font!" << std::endl;
-        // Try alternative paths
-        if (!messageFont.openFromFile("../assets/fonts/pixel.ttf")) {
-            std::cerr << "Failed to load pixel font from alternative path!" << std::endl;
+    // Try to load a font that supports Chinese characters
+    std::vector<std::string> fontPaths = {
+        "assets/fonts/NotoSansSC-Regular.ttf",  // Noto Sans SC font (supports Chinese)
+        "/System/Library/Fonts/PingFang.ttc",   // System Chinese font on macOS
+        "/System/Library/Fonts/STHeiti Light.ttc", // Alternative system Chinese font
+        "assets/fonts/pixel.ttf"  // Fallback to pixel font
+    };
+    
+    bool fontLoaded = false;
+    for (const auto& path : fontPaths) {
+        if (messageFont.openFromFile(path)) {
+            std::cout << "Successfully loaded font: " << path << std::endl;
+            fontLoaded = true;
+            break;
         }
+    }
+    
+    if (!fontLoaded) {
+        std::cerr << "Error: Could not load any suitable font!" << std::endl;
     }
 }
 
@@ -213,7 +225,7 @@ void NPC::renderAll() {
             
             // Calculate text position to be centered inside the box with padding
             float textX = boxPos.x - (textBounds.size.x / 2.0f);
-            float textY = actualBoxTop + PADDING + (textBounds.size.y / 2.0f)-10;
+            float textY = actualBoxTop + PADDING + (textBounds.size.y / 2.0f);
             
             // Set text position and draw it
             npc.messageText->setPosition(sf::Vector2f(textX, textY));
@@ -360,7 +372,7 @@ void NPC::handleInteraction(int npcId, const sf::FloatRect& playerBounds) {
         // If not already interacting, start interaction
         if (!npc->isInteracting) {
             npc->isInteracting = true;
-            displayMessage(npcId, "Hello there!", 3.0f);
+            displayMessage(npcId, "你好", 3.0f);
             
             // Update facing direction based on player position relative to NPC center
             float npcCenterX = npc->x;
@@ -398,12 +410,13 @@ void NPC::displayMessage(int npcId, const std::string& message, float duration) 
         npc->messageTimer = duration;
         
         // Create message box with appropriate size for text
-        const float PADDING = 10.0f;  // Padding around text
+        const float PADDING = 20.0f;  // Increased padding for Chinese characters
         const float MIN_BOX_WIDTH = 200.0f;
-        const float MIN_BOX_HEIGHT = 40.0f;
+        const float MIN_BOX_HEIGHT = 60.0f;  // Increased height for Chinese characters
         
-        // Create text object with font first to measure its size
-        npc->messageText = std::make_unique<sf::Text>(messageFont, message, 24);
+        // Create text object with font and UTF-8 string
+        npc->messageText = std::make_unique<sf::Text>(messageFont, "", 24);  // Initialize with font
+        npc->messageText->setString(sf::String::fromUtf8(message.begin(), message.end()));
         npc->messageText->setFillColor(sf::Color::Black);
         npc->messageText->setLineSpacing(1.2f);
         
