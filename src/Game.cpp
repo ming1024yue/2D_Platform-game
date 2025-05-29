@@ -148,6 +148,11 @@ void Game::update() {
         return;
     }
     
+    // Update view position regardless of game state
+    float viewX = std::max(WINDOW_WIDTH / 2.f, 
+                      std::min(player.getPosition().x, LEVEL_WIDTH - WINDOW_WIDTH / 2.f));
+    gameView.setCenter(sf::Vector2f(viewX, gameView.getCenter().y));
+    
     if (currentState == GameState::Playing) {
         // Update player
         player.update(deltaTime, platforms, ladders);
@@ -204,10 +209,6 @@ void Game::update() {
         // Update mini-map
         updateMiniMap();
         
-        // Center view on player with some limits
-        float viewX = std::max(WINDOW_WIDTH / 2.f, 
-                          std::min(player.getPosition().x, LEVEL_WIDTH - WINDOW_WIDTH / 2.f));
-        gameView.setCenter(sf::Vector2f(viewX, gameView.getCenter().y));
         window.setView(gameView);
     } else if (currentState == GameState::LevelTransition) {
         // Handle level transition timer
@@ -220,6 +221,27 @@ void Game::update() {
                 previousLevel();
             }
         }
+    } else if (currentState == GameState::GameOver) {
+        // In game over state (either from death or completion)
+        // Keep updating certain elements for visual continuity
+        updateFPS();
+        updateMiniMap();
+        
+        // Keep the view centered on the final position
+        window.setView(gameView);
+        
+        // Update UI elements
+        updateUI();
+        
+        // Update game over text position to stay centered in view
+        sf::Vector2f viewCenter = gameView.getCenter();
+        sf::FloatRect gameOverBounds = gameOverText.getGlobalBounds();
+        gameOverText.setPosition(sf::Vector2f(
+            viewCenter.x - gameOverBounds.size.x / 2.f,
+            viewCenter.y - gameOverBounds.size.y / 2.f - 40.f
+        ));
+        
+        sf::FloatRect restartBounds = restartText.getGlobalBounds();
     }
 }
 
@@ -790,24 +812,58 @@ void Game::checkLevelCompletion() {
     
     // Check if player has reached the end of the level (right edge)
     if (player.getPosition().x >= LEVEL_WIDTH - player.getSize().x - 50.f) {
-        // Player has reached the end of the level
-        currentState = GameState::LevelTransition;
-        transitionTimer = LEVEL_TRANSITION_DURATION;
-        
-        // Set up level transition text
-        levelText.setString("Level " + std::to_string(currentLevel) + " Completed!");
-        
-        // Center the text
-        sf::FloatRect levelBounds = levelText.getGlobalBounds();
-        levelText.setPosition(sf::Vector2f(
-            WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
-            WINDOW_HEIGHT / 2.f - levelBounds.size.y / 2.f
-        ));
+        // Handle differently based on current level
+        if (currentLevel == 1) {
+            // Player has reached the end of level 1
+            currentState = GameState::LevelTransition;
+            transitionTimer = LEVEL_TRANSITION_DURATION;
+            
+            // Set up level transition text
+            levelText.setString("Level " + std::to_string(currentLevel) + " Completed!");
+            
+            // Center the text
+            sf::FloatRect levelBounds = levelText.getGlobalBounds();
+            levelText.setPosition(sf::Vector2f(
+                WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
+                WINDOW_HEIGHT / 2.f - levelBounds.size.y / 2.f
+            ));
+        } else if (currentLevel == 2) {
+            // Player has completed the final level
+            currentState = GameState::GameOver;
+            
+            // Update game over text to show victory
+            gameOverText.setString("CONGRATULATIONS!");
+            gameOverText.setFillColor(sf::Color::Green);
+            
+            // Position game over text
+            sf::FloatRect gameOverBounds = gameOverText.getGlobalBounds();
+            gameOverText.setPosition(sf::Vector2f(
+                WINDOW_WIDTH / 2.f - gameOverBounds.size.x / 2.f,
+                WINDOW_HEIGHT / 2.f - gameOverBounds.size.y / 2.f - 40.f
+            ));
+            
+            // Update restart text
+            restartText.setString("Press ENTER to play again");
+            sf::FloatRect restartBounds = restartText.getGlobalBounds();
+            restartText.setPosition(sf::Vector2f(
+                WINDOW_WIDTH / 2.f - restartBounds.size.x / 2.f,
+                WINDOW_HEIGHT / 2.f - restartBounds.size.y / 2.f + 40.f
+            ));
+            
+            // Log completion
+            logInfo("Player completed the final level!");
+        }
     }
 }
 
 void Game::nextLevel() {
-    // Increment level
+    // Only go to level 2 if we're on level 1
+    if (currentLevel >= 2) {
+        logWarning("Already at final level (2), cannot go to next level");
+        return;
+    }
+    
+    // Increment level (will be 2)
     currentLevel++;
     
     // Reset player position to left side of level
@@ -827,33 +883,16 @@ void Game::nextLevel() {
         20.f
     ));
     
-    // Change background and theme based on level
+    // Change background and theme for Snow Forest (Level 2)
     try {
-        // Different backgrounds for each level
-        std::string levelBackgroundPath;
-        std::vector<std::string> alternativePaths;
-        
-        // Both levels use snow theme with different variations
-        if (currentLevel == 1) {
-            // Level 1 - Snow Mountain
-            levelBackgroundPath = "assets/images/backgrounds/snow/snow_background.png";
-            platformColor = sf::Color(200, 220, 255); // Light blue for snow mountain
-            alternativePaths = {
-                "assets/images/backgrounds/snow_background.png",
-                "assets/images/backgrounds/background.png",
-                "../assets/images/backgrounds/background.png"
-            };
-        } else {
-            // Level 2+ - Snow Forest
-            levelBackgroundPath = "assets/images/backgrounds/snow_forest/snow_forest_background.png";
-            platformColor = sf::Color(180, 200, 240); // Slightly different blue for snow forest
-            alternativePaths = {
-                "assets/images/backgrounds/snow_forest_background.png",
-                "assets/images/backgrounds/snow/snow_background.png",
-                "assets/images/backgrounds/background.png",
-                "../assets/images/backgrounds/background.png"
-            };
-        }
+        std::string levelBackgroundPath = "assets/images/backgrounds/snow_forest/snow_forest_background.png";
+        platformColor = sf::Color(180, 200, 240); // Slightly different blue for snow forest
+        std::vector<std::string> alternativePaths = {
+            "assets/images/backgrounds/snow_forest_background.png",
+            "assets/images/backgrounds/snow/snow_background.png",
+            "assets/images/backgrounds/background.png",
+            "../assets/images/backgrounds/background.png"
+        };
         
         // Try to load the level-specific background
         bool loaded = false;
@@ -880,63 +919,36 @@ void Game::nextLevel() {
         
         // Reload the layered background system for the new level
         if (loaded) {
-            // The old single background texture is still loaded as a fallback for the ground layer
-            // Now reload all background layers for this level
             loadBackgroundLayers();
             logInfo("Reloaded layered backgrounds for level " + std::to_string(currentLevel));
         }
-        // If we couldn't load a background texture, use the placeholder
         else {
             useBackgroundPlaceholder = true;
-            
-            // Adjust placeholder color based on level theme
-            if (currentLevel % 3 == 1) { // Forest
-                backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
-            } 
-            else if (currentLevel % 3 == 2) { // Desert
-                backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
-            } 
-            else { // Snow
-                backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
-            }
+            backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue for snow theme
         }
     } catch (const std::exception& e) {
         logError("Failed to load background for level " + std::to_string(currentLevel) + ": " + std::string(e.what()));
         useBackgroundPlaceholder = true;
-        
-        // Adjust placeholder color based on level theme
-        if (currentLevel % 3 == 1) { // Forest
-            backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
-        } 
-        else if (currentLevel % 3 == 2) { // Desert
-            backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
-        } 
-        else { // Snow
-            backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
-        }
+        backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue for snow theme
     }
     
-    // Reinitialize game elements with new variations based on level
+    // Reinitialize game elements
     initializePlatforms();
-
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
     
-    // Apply level-specific physics and difficulty
-    if (currentLevel > 1) {
-        // Add extra enemies based on level
-        for (int i = 0; i < currentLevel; i++) {
-            float x = 500.f + (i * 400.f);  // Space them out
-            float y = WINDOW_HEIGHT - 70.f; // On the ground
-            float patrolDistance = 160.f + (currentLevel * 20.f); // Longer patrol for higher levels
-            enemies.push_back(Enemy(x, y, patrolDistance));
-        }
+    // Add extra enemies for level 2
+    for (int i = 0; i < 2; i++) {
+        float x = 500.f + (i * 400.f);  // Space them out
+        float y = WINDOW_HEIGHT - 70.f; // On the ground
+        float patrolDistance = 180.f; // Fixed patrol distance for level 2
+        enemies.push_back(Enemy(x, y, patrolDistance));
     }
     
-    // Puzzle-focused physics - minimal jumping, ground-based movement
-    physicsSystem.setGravity(15.0f);  // Higher gravity to keep player grounded
-    physicsSystem.setJumpForce(200.f); // Much lower jump force for puzzle gameplay
+    // Puzzle-focused physics
+    physicsSystem.setGravity(15.0f);
+    physicsSystem.setJumpForce(200.f);
     
     // Initialize physics system
     physicsSystem.initialize();
@@ -944,7 +956,7 @@ void Game::nextLevel() {
     physicsSystem.initializePlatforms(platforms);
     physicsSystem.initializeEnemies(enemies);
     
-    logInfo("Jumped to level " + std::to_string(currentLevel) + " for testing");
+    logInfo("Advanced to Snow Forest (Level 2)");
 }
 
 void Game::previousLevel() {
@@ -954,7 +966,7 @@ void Game::previousLevel() {
         return;
     }
     
-    // Decrement level
+    // Decrement level (will be 1)
     currentLevel--;
     
     // Reset player position to right side of level (since we're going backwards)
@@ -974,33 +986,15 @@ void Game::previousLevel() {
         20.f
     ));
     
-    // Change background and theme based on level
+    // Change background and theme for Snow Mountain (Level 1)
     try {
-        // Different backgrounds for each level
-        std::string levelBackgroundPath;
-        std::vector<std::string> alternativePaths;
-        
-        // Both levels use snow theme with different variations
-        if (currentLevel == 1) {
-            // Level 1 - Snow Mountain
-            levelBackgroundPath = "assets/images/backgrounds/snow/snow_background.png";
-            platformColor = sf::Color(200, 220, 255); // Light blue for snow mountain
-            alternativePaths = {
-                "assets/images/backgrounds/snow_background.png",
-                "assets/images/backgrounds/background.png",
-                "../assets/images/backgrounds/background.png"
-            };
-        } else {
-            // Level 2+ - Snow Forest
-            levelBackgroundPath = "assets/images/backgrounds/snow_forest/snow_forest_background.png";
-            platformColor = sf::Color(180, 200, 240); // Slightly different blue for snow forest
-            alternativePaths = {
-                "assets/images/backgrounds/snow_forest_background.png",
-                "assets/images/backgrounds/snow/snow_background.png",
-                "assets/images/backgrounds/background.png",
-                "../assets/images/backgrounds/background.png"
-            };
-        }
+        std::string levelBackgroundPath = "assets/images/backgrounds/snow/snow_background.png";
+        platformColor = sf::Color(200, 220, 255); // Light blue for snow mountain
+        std::vector<std::string> alternativePaths = {
+            "assets/images/backgrounds/snow_background.png",
+            "assets/images/backgrounds/background.png",
+            "../assets/images/backgrounds/background.png"
+        };
         
         // Try to load the level-specific background
         bool loaded = false;
@@ -1030,57 +1024,25 @@ void Game::previousLevel() {
             loadBackgroundLayers();
             logInfo("Reloaded layered backgrounds for level " + std::to_string(currentLevel));
         }
-        // If we couldn't load a background texture, use the placeholder
         else {
             useBackgroundPlaceholder = true;
-            
-            // Adjust placeholder color based on level theme
-            if (currentLevel % 3 == 1) { // Forest
-                backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
-            } 
-            else if (currentLevel % 3 == 2) { // Desert
-                backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
-            } 
-            else { // Snow
-                backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
-            }
+            backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue for snow theme
         }
     } catch (const std::exception& e) {
         logError("Failed to load background for level " + std::to_string(currentLevel) + ": " + std::string(e.what()));
         useBackgroundPlaceholder = true;
-        
-        // Adjust placeholder color based on level theme
-        if (currentLevel % 3 == 1) { // Forest
-            backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
-        } 
-        else if (currentLevel % 3 == 2) { // Desert
-            backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
-        } 
-        else { // Snow
-            backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
-        }
+        backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue for snow theme
     }
     
-    // Reinitialize game elements with new variations based on level
+    // Reinitialize game elements
     initializePlatforms();
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
     
-    // Apply level-specific physics and difficulty
-    if (currentLevel > 1) {
-        // Add extra enemies based on level
-        for (int i = 0; i < currentLevel; i++) {
-            float x = 500.f + (i * 400.f);  // Space them out
-            float y = WINDOW_HEIGHT - 70.f; // On the ground
-            float patrolDistance = 160.f + (currentLevel * 20.f); // Longer patrol for higher levels
-            enemies.push_back(Enemy(x, y, patrolDistance));
-        }
-    }
-    
-    // Puzzle-focused physics - minimal jumping, ground-based movement
-    physicsSystem.setGravity(15.0f);  // Higher gravity to keep player grounded
-    physicsSystem.setJumpForce(200.f); // Much lower jump force for puzzle gameplay
+    // Puzzle-focused physics
+    physicsSystem.setGravity(15.0f);
+    physicsSystem.setJumpForce(200.f);
     
     // Initialize physics system
     physicsSystem.initialize();
@@ -1088,7 +1050,7 @@ void Game::previousLevel() {
     physicsSystem.initializePlatforms(platforms);
     physicsSystem.initializeEnemies(enemies);
     
-    logInfo("Moved back to level " + std::to_string(currentLevel));
+    logInfo("Returned to Snow Mountain (Level 1)");
 }
 
 void Game::updateImGui() {
@@ -1238,7 +1200,7 @@ void Game::updateImGui() {
                     
                     // Level selection
                     static int selectedLevel = currentLevel;
-                    if (ImGui::SliderInt("Select Level", &selectedLevel, 1, 20)) {
+                    if (ImGui::SliderInt("Select Level", &selectedLevel, 1, 2)) {
                         // Level will be changed when "Jump to Level" button is pressed
                     }
                     
@@ -1268,7 +1230,7 @@ void Game::updateImGui() {
                     ImGui::Separator();
                     ImGui::Text("Level Themes:");
                     ImGui::BulletText("Level 1 = Snow Mountain (Puzzle challenges)");
-                    ImGui::BulletText("Level 2+ = Snow Forest (Puzzle challenges)");
+                    ImGui::BulletText("Level 2 = Snow Forest (Puzzle challenges)");
                     
                     ImGui::Separator();
                     
@@ -1977,10 +1939,8 @@ void Game::syncPlatformsWithPhysics() {
 }
 
 void Game::jumpToLevel(int level) {
-    // Ensure level is valid (at least 1)
-    if (level < 1) {
-        level = 1;
-    }
+    // Ensure level is valid (only 1 or 2)
+    level = std::min(std::max(level, 1), 2);
     
     // Set the current level
     currentLevel = level;
@@ -2011,36 +1971,25 @@ void Game::jumpToLevel(int level) {
         std::string levelBackgroundPath;
         std::vector<std::string> alternativePaths;
         
-        switch (currentLevel % 3) {
-            case 1: // Forest theme (levels 1, 4, 7...)
-                levelBackgroundPath = "assets/images/backgrounds/forest/forest_background.png";
-                platformColor = sf::Color(34, 139, 34); // Forest green
-                alternativePaths = {
-                    "assets/images/backgrounds/forest_background.png",
-                    "assets/images/backgrounds/background.png",
-                    "../assets/images/backgrounds/background.png"
-                };
-                break;
-                
-            case 2: // Desert theme (levels 2, 5, 8...)
-                levelBackgroundPath = "assets/images/backgrounds/desert/desert_background.png";
-                platformColor = sf::Color(210, 180, 140); // Desert sand color
-                alternativePaths = {
-                    "assets/images/backgrounds/desert_background.png",
-                    "assets/images/backgrounds/background.png",
-                    "../assets/images/backgrounds/background.png"
-                };
-                break;
-                
-            case 0: // Snow theme (levels 3, 6, 9...)
-                levelBackgroundPath = "assets/images/backgrounds/snow/snow_background.png";
-                platformColor = sf::Color(200, 220, 255); // Light blue for snow
-                alternativePaths = {
-                    "assets/images/backgrounds/snow_background.png",
-                    "assets/images/backgrounds/background.png",
-                    "../assets/images/backgrounds/background.png"
-                };
-                break;
+        if (currentLevel == 1) {
+            // Level 1 - Snow Mountain
+            levelBackgroundPath = "assets/images/backgrounds/snow/snow_background.png";
+            platformColor = sf::Color(200, 220, 255); // Light blue for snow mountain
+            alternativePaths = {
+                "assets/images/backgrounds/snow_background.png",
+                "assets/images/backgrounds/background.png",
+                "../assets/images/backgrounds/background.png"
+            };
+        } else {
+            // Level 2 - Snow Forest
+            levelBackgroundPath = "assets/images/backgrounds/snow_forest/snow_forest_background.png";
+            platformColor = sf::Color(180, 200, 240); // Slightly different blue for snow forest
+            alternativePaths = {
+                "assets/images/backgrounds/snow_forest_background.png",
+                "assets/images/backgrounds/snow/snow_background.png",
+                "assets/images/backgrounds/background.png",
+                "../assets/images/backgrounds/background.png"
+            };
         }
         
         // Try to load the level-specific background
@@ -2068,56 +2017,33 @@ void Game::jumpToLevel(int level) {
         
         // Reload the layered background system for the new level
         if (loaded) {
-            // The old single background texture is still loaded as a fallback for the ground layer
-            // Now reload all background layers for this level
             loadBackgroundLayers();
             logInfo("Reloaded layered backgrounds for level " + std::to_string(currentLevel));
         }
         // If we couldn't load a background texture, use the placeholder
         else {
             useBackgroundPlaceholder = true;
-            
-            // Adjust placeholder color based on level theme
-            if (currentLevel % 3 == 1) { // Forest
-                backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
-            } 
-            else if (currentLevel % 3 == 2) { // Desert
-                backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
-            } 
-            else { // Snow
-                backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
-            }
+            backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue for snow theme
         }
     } catch (const std::exception& e) {
         logError("Failed to load background for level " + std::to_string(currentLevel) + ": " + std::string(e.what()));
         useBackgroundPlaceholder = true;
-        
-        // Adjust placeholder color based on level theme
-        if (currentLevel % 3 == 1) { // Forest
-            backgroundPlaceholder.setFillColor(sf::Color(100, 180, 100)); // Green
-        } 
-        else if (currentLevel % 3 == 2) { // Desert
-            backgroundPlaceholder.setFillColor(sf::Color(210, 180, 140)); // Sand
-        } 
-        else { // Snow
-            backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue
-        }
+        backgroundPlaceholder.setFillColor(sf::Color(200, 220, 255)); // Light blue for snow theme
     }
     
     // Reinitialize game elements with new variations based on level
     initializePlatforms();
-
     initializeEnemies();
     initializeUI();
     initializeMiniMap();
     
     // Apply level-specific physics and difficulty
-    if (currentLevel > 1) {
-        // Add extra enemies based on level
-        for (int i = 0; i < currentLevel; i++) {
+    if (currentLevel == 2) {
+        // Add extra enemies for level 2
+        for (int i = 0; i < 2; i++) {
             float x = 500.f + (i * 400.f);  // Space them out
             float y = WINDOW_HEIGHT - 70.f; // On the ground
-            float patrolDistance = 160.f + (currentLevel * 20.f); // Longer patrol for higher levels
+            float patrolDistance = 180.f; // Fixed patrol distance for level 2
             enemies.push_back(Enemy(x, y, patrolDistance));
         }
     }
@@ -2132,7 +2058,7 @@ void Game::jumpToLevel(int level) {
     physicsSystem.initializePlatforms(platforms);
     physicsSystem.initializeEnemies(enemies);
     
-    logInfo("Jumped to level " + std::to_string(currentLevel) + " for testing");
+    logInfo("Jumped to level " + std::to_string(currentLevel));
 }
 
 // Initialize background layers with default configuration
@@ -2298,8 +2224,8 @@ void Game::initializeNPCs() {
     assets.loadTexture("npc_idle", "assets/images/npc/separated/idle/idle_frame_01.png");
     assets.loadTexture("npc_walking", "assets/images/npc/separated/walking/walking_frame_01.png");
     
-    // Create an NPC at the beginning of the level
-    float npcX = 200.f;  // A bit ahead of the player's starting position
+    // Create an NPC near the end of level 1
+    float npcX = LEVEL_WIDTH - 300.f;  // 300 pixels from the right edge, giving player space to interact
     float npcY = WINDOW_HEIGHT - GROUND_HEIGHT - 16;  // Just above the ground
     npcManager->createNPC("Village_Guard", "npc_idle", npcX, npcY);
 

@@ -411,7 +411,7 @@ void NPC::displayMessage(int npcId, const std::string& message, float duration) 
         
         // Create message box with appropriate size for text
         const float PADDING = 20.0f;  // Increased padding for Chinese characters
-        const float MIN_BOX_WIDTH = 200.0f;
+        const float MIN_BOX_WIDTH = 180.0f;
         const float MIN_BOX_HEIGHT = 60.0f;  // Increased height for Chinese characters
         
         // Create text object with font and UTF-8 string

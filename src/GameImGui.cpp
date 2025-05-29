@@ -238,13 +238,23 @@ void Game::draw() {
         player.drawDebugInfo(window);
     }
     
+    // Create semi-transparent overlay for game over state
+    if (currentState == GameState::GameOver) {
+        // Create a semi-transparent dark overlay
+        sf::RectangleShape overlay;
+        overlay.setSize(sf::Vector2f(WINDOW_WIDTH * 2, WINDOW_HEIGHT * 2)); // Make it larger to cover everything
+        overlay.setPosition(gameView.getCenter() - sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT)); // Center on view
+        overlay.setFillColor(sf::Color(0, 0, 0, 180)); // Semi-transparent black
+        window.draw(overlay);
+    }
+    
     // Draw UI elements only if not using ImGui or it's a state-specific UI
     if (!useImGuiInterface || currentState != GameState::Playing) {
         if (currentState == GameState::Playing) {
             // Draw level indicator at the top
             window.draw(levelText);
         } else if (currentState == GameState::GameOver) {
-            // Draw game over text
+            // Draw game over text and restart text (now positioned in update())
             window.draw(gameOverText);
             window.draw(restartText);
         } else if (currentState == GameState::LevelTransition) {
