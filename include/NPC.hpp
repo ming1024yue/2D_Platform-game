@@ -43,6 +43,7 @@ public:
     void removeNPC(int id);
     void updateAll(float deltaTime);
     void renderAll();
+    void clearNPCs(); // New method to clear all NPCs
 
     // Individual NPC controls
     void setNPCPosition(int id, float x, float y);

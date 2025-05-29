@@ -485,4 +485,9 @@ void NPC::updateNPCState(NPCData& npc) {
         npc.currentState = "idle";
         stateTimers[npc.id] = 0.0f;
     }
+}
+
+void NPC::clearNPCs() {
+    npcs.clear();
+    nextId = 0;
 } 

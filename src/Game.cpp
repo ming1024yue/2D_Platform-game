@@ -610,7 +610,7 @@ void Game::resetGame() {
     playerHitCooldown = 0.f;
     currentState = GameState::Playing;
     
-    // Reinitialize everything
+    // Reinitialize everything except NPCs
     initializePlatforms();
     initializeEnemies();
     initializeUI();
@@ -623,6 +623,11 @@ void Game::resetGame() {
     physicsSystem.initializePlayer(player);
     physicsSystem.initializePlatforms(platforms);
     physicsSystem.initializeEnemies(enemies);
+    
+    // Make sure NPCs are properly initialized in physics system
+    if (npcManager) {
+        physicsSystem.initializeNPCs(npcManager->getAllNPCs());
+    }
 }
 
 void Game::checkPlayerEnemyCollision() {
@@ -882,6 +887,9 @@ void Game::nextLevel() {
         WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
         20.f
     ));
+
+    // Initialize level-specific NPCs
+    initializeNPCs();
     
     // Change background and theme for Snow Forest (Level 2)
     try {
@@ -985,6 +993,9 @@ void Game::previousLevel() {
         WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
         20.f
     ));
+
+    // Initialize level-specific NPCs
+    initializeNPCs();
     
     // Change background and theme for Snow Mountain (Level 1)
     try {
@@ -1964,6 +1975,11 @@ void Game::jumpToLevel(int level) {
         WINDOW_WIDTH / 2.f - levelBounds.size.x / 2.f,
         20.f
     ));
+
+    // Clear NPCs before reinitializing
+    if (npcManager) {
+        npcManager->clearNPCs();
+    }
     
     // Change background and theme based on level
     try {
@@ -2223,11 +2239,26 @@ void Game::initializeNPCs() {
     // Load NPC textures for different animations
     assets.loadTexture("npc_idle", "assets/images/npc/separated/idle/idle_frame_01.png");
     assets.loadTexture("npc_walking", "assets/images/npc/separated/walking/walking_frame_01.png");
+   // assets.loadTexture("merchant_idle", "assets/images/npc/merchant/idle/merchant_idle_01.png");
     
-    // Create an NPC near the end of level 1
-    float npcX = LEVEL_WIDTH - 300.f;  // 300 pixels from the right edge, giving player space to interact
-    float npcY = WINDOW_HEIGHT - GROUND_HEIGHT - 16;  // Just above the ground
-    npcManager->createNPC("Village_Guard", "npc_idle", npcX, npcY);
+    // Clear existing NPCs
+    if (npcManager) {
+        npcManager->clearNPCs();
+    }
+
+    // Create level-specific NPCs
+    if (currentLevel == 1) {
+        // Old man NPC only appears in level 1
+        float npcX = LEVEL_WIDTH - 300.f;  // 300 pixels from the right edge
+        float npcY = WINDOW_HEIGHT - GROUND_HEIGHT - 16;  // Just above the ground
+        npcManager->createNPC("old_man", "npc_idle", npcX, npcY);
+    } 
+    else if (currentLevel == 2) {
+        // Merchant NPC only appears in level 2
+/*         float merchantX = 400.f;  // Position merchant early in level 2
+        float merchantY = WINDOW_HEIGHT - GROUND_HEIGHT - 16;
+        npcManager->createNPC("merchant", "merchant_idle", merchantX, merchantY); */
+    }
 
     // Configure NPC physics properties
     physicsSystem.setNPCCollisionSize(0.8f, 0.9f);  // Slightly smaller than sprite for better collision
