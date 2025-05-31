@@ -17,7 +17,7 @@ static bool rectsIntersect(const sf::FloatRect& a, const sf::FloatRect& b) {
            a.position.y + a.size.y > b.position.y;
 }
 
-Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), "2D Platform Puzzle Game"),
+Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), "Platform Puzzle Game"),
                player(50.f, WINDOW_HEIGHT - GROUND_HEIGHT - 80.f, physicsSystem), // Pass physicsSystem reference
                playerHit(false),
                playerHitCooldown(0.f),
@@ -40,7 +40,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                enemyBorderColor(255, 0, 0),
                spriteScale(4.0f),
                boundaryBoxHeight(0.67f),
-               showEnemies(false),  // Show enemies by default
+               showEnemies(true),  // Show enemies by default
                showDebugGrid(false),
                gridSize(50.0f),
                gridColor(128, 128, 128, 64),  // Semi-transparent gray
@@ -52,7 +52,11 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                showImGuiDemo(false),
                useImGuiInterface(true),
                showAssetManager(false),
-               previewAvailable(false) {
+               previewAvailable(false),
+               isMusicEnabled(true),
+               isSoundEffectsEnabled(true),
+               musicVolume(0.7f),
+               soundEffectVolume(1.0f) {
     
     // Initialize logging system
     gameLogFile.open(gameLogFileName, std::ios::out | std::ios::app);
@@ -126,6 +130,48 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
     physicsSystem.initializePlayer(player);
     physicsSystem.initializePlatforms(platforms);
     physicsSystem.initializeEnemies(enemies);
+    
+    // Initialize all systems
+    initializeAudio();
+}
+
+void Game::initializeAudio() {
+    if (!soundSystem.initialize()) {
+        logError("Failed to initialize sound system");
+        return;
+    }
+
+    // Load background music
+    if (!soundSystem.loadMusic("background", "assets/audio/music/background.wav")) {
+        logWarning("Failed to load background music");
+    } else {
+        logInfo("Successfully loaded background music");
+    }
+    
+    // Load sound effects
+    const std::vector<std::pair<std::string, std::string>> soundEffects = {
+        {"jump", "assets/audio/sfx/jump.wav"},
+        {"land", "assets/audio/sfx/land.wav"},
+        {"hit", "assets/audio/sfx/hit.wav"},
+        {"collect", "assets/audio/sfx/collect.wav"}
+    };
+    
+    for (const auto& [name, path] : soundEffects) {
+        if (!soundSystem.loadSoundEffect(name, path)) {
+            logWarning("Failed to load sound effect: " + name);
+        }
+    }
+    
+    // Set initial volumes
+    soundSystem.setMasterVolume(1.0f);
+    soundSystem.setMusicVolume(musicVolume);
+    soundSystem.setSoundEffectVolume(soundEffectVolume);
+    
+    // Start playing background music with loop enabled
+    if (isMusicEnabled) {
+        logInfo("Starting background music playback");
+        soundSystem.playMusic("background", true);  // true enables looping
+    }
 }
 
 void Game::update() {
@@ -155,7 +201,19 @@ void Game::update() {
     
     if (currentState == GameState::Playing) {
         // Update player
-        player.update(deltaTime, platforms, ladders);
+        sf::Vector2f oldPosition = player.getPosition();
+        player.update(deltaTime, platforms, ladders);  // Pass required arguments
+        sf::Vector2f newPosition = player.getPosition();
+        
+        // Play jump sound effect if player has jumped
+        if (newPosition.y < oldPosition.y && player.isJumping() && isSoundEffectsEnabled) {
+            soundSystem.playSoundEffect("jump");
+        }
+        
+        // Play land sound effect if player has landed
+        if (oldPosition.y < newPosition.y && !player.isJumping() && isSoundEffectsEnabled) {
+            soundSystem.playSoundEffect("land");
+        }
         
         // Update NPCs
         npcManager->updateAll(deltaTime);
@@ -1460,6 +1518,36 @@ void Game::updateImGui() {
                     }
                     
                     ImGui::EndTabItem();
+                }
+                
+                // Add audio controls to ImGui
+                if (ImGui::CollapsingHeader("Audio Settings")) {
+                    bool musicEnabled = isMusicEnabled;
+                    if (ImGui::Checkbox("Enable Music", &musicEnabled)) {
+                        isMusicEnabled = musicEnabled;
+                        if (isMusicEnabled) {
+                            soundSystem.playMusic("background", true);
+                        } else {
+                            soundSystem.stopMusic();
+                        }
+                    }
+                    
+                    bool sfxEnabled = isSoundEffectsEnabled;
+                    if (ImGui::Checkbox("Enable Sound Effects", &sfxEnabled)) {
+                        isSoundEffectsEnabled = sfxEnabled;
+                    }
+                    
+                    float music = musicVolume;
+                    if (ImGui::SliderFloat("Music Volume", &music, 0.0f, 1.0f)) {
+                        musicVolume = music;
+                        soundSystem.setMusicVolume(musicVolume);
+                    }
+                    
+                    float sfx = soundEffectVolume;
+                    if (ImGui::SliderFloat("Sound Effects Volume", &sfx, 0.0f, 1.0f)) {
+                        soundEffectVolume = sfx;
+                        soundSystem.setSoundEffectVolume(soundEffectVolume);
+                    }
                 }
                 
                 ImGui::EndTabBar();

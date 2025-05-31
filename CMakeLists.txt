@@ -10,6 +10,15 @@ find_package(SFML 3 COMPONENTS Graphics Window System Audio REQUIRED)
 # Find OpenGL (needed for ImGui-SFML)
 find_package(OpenGL REQUIRED)
 
+# Find OpenAL
+if(APPLE)
+    # On macOS, use the framework
+    find_library(OPENAL_LIBRARY OpenAL)
+    set(OPENAL_INCLUDE_DIR "/System/Library/Frameworks/OpenAL.framework/Headers")
+else()
+    find_package(OpenAL REQUIRED)
+endif()
+
 # ImGui sources
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/external/imgui)
 set(IMGUI_SFML_DIR ${CMAKE_SOURCE_DIR}/external/imgui-sfml)
@@ -36,6 +45,7 @@ set(GAME_SOURCES
     src/Physics.cpp
     src/RenderingSystem.cpp
     src/NPC.cpp
+    src/SoundSystem.cpp
 )
 
 # Add executable
@@ -50,6 +60,7 @@ target_include_directories(game PRIVATE
     ${IMGUI_DIR}
     ${IMGUI_SFML_DIR}
     ${OPENGL_INCLUDE_DIR}
+    ${OPENAL_INCLUDE_DIR}
 )
 
 # Link libraries
@@ -59,6 +70,7 @@ target_link_libraries(game PRIVATE
     SFML::System 
     SFML::Audio
     ${OPENGL_LIBRARIES}
+    ${OPENAL_LIBRARY}
 )
 
 # Add debug subdirectory

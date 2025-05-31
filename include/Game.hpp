@@ -7,6 +7,7 @@
 #include "Player.hpp"
 #include "Enemy.hpp"
 #include "NPC.hpp"
+#include "SoundSystem.h"
 
 #include "AssetManager.hpp"
 #include "Physics.hpp"
@@ -49,6 +50,7 @@ private:
     void initializeEnemies();
     void initializeUI();
     void initializeMiniMap();
+    void initializeAudio(); // New method for audio initialization
     void updateMiniMap();
     void syncPlatformsWithPhysics();
     void checkPlayerEnemyCollision();
@@ -227,4 +229,11 @@ private:
     bool isFullscreen = false;
     sf::VideoMode previousVideoMode;  // Store previous window size/mode
     sf::Vector2i previousPosition;    // Store previous window position
+
+    // Sound system
+    SoundSystem soundSystem;
+    bool isMusicEnabled;
+    bool isSoundEffectsEnabled;
+    float musicVolume;
+    float soundEffectVolume;
 }; 
