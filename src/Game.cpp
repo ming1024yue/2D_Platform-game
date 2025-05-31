@@ -40,7 +40,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                enemyBorderColor(255, 0, 0),
                spriteScale(4.0f),
                boundaryBoxHeight(0.67f),
-               showEnemies(true),  // Show enemies by default
+               showEnemies(false),  // Show enemies by default
                showDebugGrid(false),
                gridSize(50.0f),
                gridColor(128, 128, 128, 64),  // Semi-transparent gray
@@ -54,7 +54,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                showAssetManager(false),
                previewAvailable(false),
                isMusicEnabled(true),
-               isSoundEffectsEnabled(true),
+               isSoundEffectsEnabled(false),
                musicVolume(0.7f),
                soundEffectVolume(1.0f) {
     
