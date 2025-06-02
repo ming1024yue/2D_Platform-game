@@ -71,7 +71,4 @@ target_link_libraries(game PRIVATE
     SFML::Audio
     ${OPENGL_LIBRARIES}
     ${OPENAL_LIBRARY}
-)
-
-# Add debug subdirectory
-add_subdirectory(src/debug) 
+) 

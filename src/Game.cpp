@@ -55,7 +55,7 @@ Game::Game() : window(sf::VideoMode(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT)), 
                previewAvailable(false),
                isMusicEnabled(true),
                isSoundEffectsEnabled(false),
-               musicVolume(0.7f),
+               musicVolume(0.4f),
                soundEffectVolume(1.0f) {
     
     // Initialize logging system

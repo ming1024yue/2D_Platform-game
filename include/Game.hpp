@@ -184,7 +184,7 @@ private:
     
     static constexpr int WINDOW_WIDTH = 800;
     static constexpr int WINDOW_HEIGHT = 600;
-    static constexpr int LEVEL_WIDTH = 3000; // Extended level width for scrolling
+    static constexpr int LEVEL_WIDTH = 1500; // Reduced from 3000 to make the level shorter
     static constexpr int FPS = 60;
     static constexpr float HIT_COOLDOWN = 1.5f; // 1.5 seconds invulnerability
     static constexpr float LEVEL_TRANSITION_DURATION = 1.0f; // Duration of level transition in seconds
