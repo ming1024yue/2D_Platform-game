@@ -527,14 +527,21 @@ void Game::initializePlatforms() {
     // Clear existing platforms
     platforms.clear();
     
-    // Create only the ground platform for puzzle-based gameplay
+    // Create the ground platform for puzzle-based gameplay
     sf::RectangleShape ground;
     ground.setSize(sf::Vector2f(LEVEL_WIDTH, GROUND_HEIGHT));
     ground.setPosition(sf::Vector2f(0, WINDOW_HEIGHT - GROUND_HEIGHT));
     ground.setFillColor(platformColor);
     platforms.push_back(ground);
     
-    // Reinitialize physics system with just the ground platform
+    // Add a platform in the middle of the level
+    sf::RectangleShape middlePlatform;
+    middlePlatform.setSize(sf::Vector2f(200.f, 20.f)); // Width: 200, Height: 20
+    middlePlatform.setPosition(sf::Vector2f(LEVEL_WIDTH / 2.f - 100.f, WINDOW_HEIGHT / 2.f + 20.f)); // Centered horizontally and vertically
+    middlePlatform.setFillColor(platformColor);
+    platforms.push_back(middlePlatform);
+    
+    // Reinitialize physics system with the platforms
     physicsSystem.initialize();
     physicsSystem.initializePlatforms(platforms);
 }

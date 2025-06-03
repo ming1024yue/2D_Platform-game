@@ -27,6 +27,13 @@
       },
       {
         "type": "platform",
+        "x": 19,
+        "y": 7,
+        "width": 4,
+        "slope_type": null
+      },
+      {
+        "type": "platform",
         "x": 24,
         "y": 8,
         "width": 6,

@@ -54,6 +54,15 @@ public:
     RenderingSystem();
     ~RenderingSystem();
 
+    // Required tile filenames for platform rendering
+    const std::vector<std::string> requiredTiles = {
+        "tile_left.png",
+        "tile_right.png",
+        "tile_middle.png",
+        "tile_00_snow.png"
+    };
+
+    
     // Main rendering method
     void renderFrame();
     
@@ -121,8 +130,9 @@ public:
     
     // Tile rendering functionality (moved from TileRenderer)
     bool loadTiles(const std::string& tilesDirectory);
-    void renderPlatform(sf::RenderWindow& window, const sf::RectangleShape& platform, bool randomize = true);
-    void renderPlatforms(sf::RenderWindow& window, const std::vector<sf::RectangleShape>& platforms, bool randomize = true);
+    void renderGround(sf::RenderWindow& window, const sf::RectangleShape& platform, bool randomize);
+    void renderPlat(sf::RenderWindow& window, const sf::RectangleShape& platform, bool randomize = true);
+    void renderPlatforms(sf::RenderWindow& window, const std::vector<sf::RectangleShape>& platforms, bool randomize);
     void renderTileGrid(sf::RenderWindow& window, const sf::Vector2f& position, const sf::Vector2f& size);
     
     // General rendering utilities
@@ -152,12 +162,14 @@ public:
     void endBatch();
     void addToBatch(const sf::Sprite& sprite, const sf::Vector2f& position);
 
+
+    
 private:
     
     // Logging system
     std::ofstream logFile;
     bool loggingEnabled = true;
-    std::string logFileName = "rendering_debug.log";
+    std::string logFileName = "rendering.log";
     
     // Background system
     std::vector<BackgroundLayer> backgroundLayers;
@@ -175,7 +187,7 @@ private:
     // Rendering settings
     bool showBoundingBoxes = false;
     bool showDebugGrid = false;
-    bool showMiniMap = true;
+    bool showMiniMap = false;
 
     bool showEnemies = true;
     float spriteScale = 4.0f;

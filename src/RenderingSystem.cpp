@@ -225,16 +225,18 @@ void RenderingSystem::setBackgroundLayersRef(const std::vector<BackgroundLayer>&
     logInfo("Background layers copied from reference, count: " + std::to_string(backgroundLayers.size()));
 }
 
-void RenderingSystem::renderPlatforms(const std::vector<sf::RectangleShape>& platforms) {
-    if (!renderTarget) return;
-    
+void RenderingSystem::renderPlatforms(sf::RenderWindow& window, const std::vector<sf::RectangleShape>& platforms, bool randomize) {
     for (const auto& platform : platforms) {
-        renderTarget->draw(platform);
+        // Check if this is the ground platform (positioned at the bottom of the window)
+        if (platform.getPosition().y >= WINDOW_HEIGHT - GROUND_HEIGHT) {
+            // Render ground platform with ground tiles
+            renderGround(window, platform, randomize);
+        } else {
+            // Render elevated platform with edge tiles
+            renderPlat(window, platform, randomize);
+        }
     }
-    logDebug("Rendered " + std::to_string(platforms.size()) + " platforms");
 }
-
-
 
 void RenderingSystem::renderPlayer(const Player& player) {
     if (!renderTarget) return;
@@ -603,7 +605,7 @@ bool RenderingSystem::loadTiles(const std::string& tilesDirectory) {
     return true;
 }
 
-void RenderingSystem::renderPlatform(sf::RenderWindow& window, const sf::RectangleShape& platform, bool randomize) {
+void RenderingSystem::renderGround(sf::RenderWindow& window, const sf::RectangleShape& platform, bool randomize) {
     if (tileTextures.empty()) {
         // Fallback to original platform rendering if no tiles loaded
         window.draw(platform);
@@ -630,31 +632,74 @@ void RenderingSystem::renderPlatform(sf::RenderWindow& window, const sf::Rectang
     }
 }
 
-void RenderingSystem::renderPlatforms(sf::RenderWindow& window, const std::vector<sf::RectangleShape>& platforms, bool randomize) {
-    for (const auto& platform : platforms) {
-        renderPlatform(window, platform, randomize);
+void RenderingSystem::renderPlat(sf::RenderWindow& window, const sf::RectangleShape& platform, bool randomize)
+{
+    if (tileTextures.empty()) {
+        window.draw(platform);
+        logWarning("No tiles loaded, using fallback rendering");
+        return;
     }
-}
 
-void RenderingSystem::renderTileGrid(sf::RenderWindow& window, const sf::Vector2f& position, const sf::Vector2f& size) {
-    if (tileTextures.empty()) return;
-    
+    sf::Vector2f platformPos = platform.getPosition();
+    sf::Vector2f platformSize = platform.getSize();
     float scaledTileSize = tileSize * tileScale;
-    int tilesX = static_cast<int>(std::ceil(size.x / scaledTileSize));
-    int tilesY = static_cast<int>(std::ceil(size.y / scaledTileSize));
+    int tilesX = static_cast<int>(std::ceil(platformSize.x / scaledTileSize));
     
-    for (int y = 0; y < tilesY; y++) {
-        for (int x = 0; x < tilesX; x++) {
-            int tileIndex = (x + y) % tileTextures.size(); // Simple pattern for debug
-            sf::Sprite& sprite = getTileSprite(tileIndex);
-            
-            sprite.setPosition(sf::Vector2f(
-                position.x + x * scaledTileSize,
-                position.y + y * scaledTileSize
-            ));
-            
-            window.draw(sprite);
+    // Find indices for special tiles
+    int leftTileIndex = -1;
+    int rightTileIndex = -1;
+    int middleTileIndex = -1;
+    
+    // Find the tile indices with exact filename matches
+    for (size_t i = 0; i < tileFilenames.size(); i++) {
+        const std::string& filename = tileFilenames[i];
+        if (filename == "tile_left.png") {
+            leftTileIndex = i;
+        } else if (filename == "tile_right.png") {
+            rightTileIndex = i;
+        } else if (filename == "tile_middle.png" || filename == "tile_00_snow.png") {
+            middleTileIndex = i;
         }
+    }
+    
+
+
+    // Render each tile
+    for (int x = 0; x < tilesX; x++) {
+        int tileIndex;
+        bool isEdgeTile = false;
+        
+        if (x == 0) {
+            tileIndex = leftTileIndex;  // Left edge
+            isEdgeTile = true;
+        } else if (x == tilesX - 1) {
+            tileIndex = rightTileIndex; // Right edge
+            isEdgeTile = true;
+        } else {
+            tileIndex = middleTileIndex; // Middle section
+        }
+        
+        // Get the sprite and ensure it's properly scaled
+        sf::Sprite& sprite = getTileSprite(tileIndex);
+        sprite.setScale(sf::Vector2f(tileScale, tileScale));
+        
+        // Calculate position
+        sf::Vector2f tilePos;
+        if (isEdgeTile) {
+            // For edge tiles, ensure they align perfectly with platform edges
+            tilePos.x = x == 0 ? platformPos.x : (platformPos.x + platformSize.x - scaledTileSize);
+            tilePos.y = platformPos.y;
+        } else {
+            // For middle tiles, space them evenly
+            tilePos.x = platformPos.x + x * scaledTileSize;
+            tilePos.y = platformPos.y;
+        }
+        
+        // Set position and render
+        sprite.setPosition(tilePos);
+        window.draw(sprite);
+        
+
     }
 }
 
